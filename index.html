@@ -87,11 +87,13 @@
     </div>
   </section>
 
-  <!-- Transition: Level 1 cleared, Level 2 assignment being saved -->
+  <!-- Screen 4 / 7: level cleared, waiting for the rest of the group -->
   <section id="screen-wait" class="screen">
     <div class="card center">
-      <h2>¡Nivel 1 superado! 📞</h2>
-      <p class="muted">Cargando el Nivel 2…</p>
+      <h2 id="wait-title">¡Nivel superado!</h2>
+      <p><strong id="wait-count"></strong></p>
+      <div class="progress"><span id="wait-bar"></span></div>
+      <p class="muted" id="wait-hint" style="margin-top:12px"></p>
     </div>
   </section>
 
@@ -120,8 +122,7 @@
   <section id="screen-victory" class="screen">
     <div class="card center">
       <h1>🎉 Sistema infiltrado</h1>
-      <p>Completaste la Misión Cero.</p>
-      <p><strong id="victory-team"></strong></p>
+      <p>El equipo completó la Misión Cero.</p>
       <p class="muted">Sigan las indicaciones del coordinador para la próxima estación.</p>
     </div>
   </section>

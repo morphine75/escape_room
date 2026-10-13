@@ -18,9 +18,18 @@ export function countCompleted(players, field) {
   return Object.values(players || {}).filter((p) => p && p[field] === true).length;
 }
 
-export function allCompleted(players, field, required) {
-  const list = Object.values(players || {});
-  const total = Number(required) || list.length;
-  if (list.length < total) return false;
-  return list.filter((p) => p && p[field] === true).length >= total;
+// Players that gate a level: everyone still connected (plus `selfId`, so a
+// player never waits on their own presence flag). A player who dropped out does
+// not block the rest of the group; they rejoin the flow when they reconnect.
+export function activePlayers(players, selfId) {
+  return Object.entries(players || {})
+    .filter(([id, p]) => p && (p.connected !== false || id === selfId))
+    .map(([, p]) => p);
+}
+
+// True once every active player has `field === true`: the next level unlocks
+// for the whole group at that moment, with no coordinator action.
+export function everyoneCompleted(players, field, selfId) {
+  const list = activePlayers(players, selfId);
+  return list.length > 0 && list.every((p) => p[field] === true);
 }

@@ -57,7 +57,10 @@ body[data-screen="screen-level1"] .app-header {
   font-size: 0.75rem;
   color: #7dffb0;
 }
-.l1-status { text-align: right; }
+.l1-status { text-align: right; transition: color 150ms; }
+.l1-status[data-kind="warning"] { color: #ffb700; }
+.l1-status[data-kind="error"] { color: #ff0055; font-weight: 700; }
+.l1-status[data-kind="success"] { color: #00ff66; font-weight: 700; }
 
 /* --- Board ------------------------------------------------------------------ */
 /* A square grid of wall/data cells with entity tokens floating above. Tokens are

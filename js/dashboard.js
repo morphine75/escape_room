@@ -1,13 +1,13 @@
 // Coordinator dashboard: creates the room, starts the round, shows live progress
-// and resets the room. Players advance between levels on their own (each client
-// moves to the next level as soon as it clears one), so there is no phase
+// and resets the room. Level unlocks happen on the clients (each one moves on as
+// soon as every active player cleared the current level), so there is no phase
 // advance here — see DESIGN.md 9 #12.
 import { db, isConfigured } from "./firebase.js";
 import {
   ref, update, get, remove, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { createRoom, normalizeRoomId } from "./room.js";
-import { subscribeRoom } from "./sync.js";
+import { subscribeRoom, everyoneCompleted } from "./sync.js";
 import { saveHostRoom, loadHostRoom } from "./session.js";
 import { showScreen, toast, $ } from "./ui.js";
 
@@ -103,10 +103,11 @@ function onData(data) {
 
 // --- Rendering ---------------------------------------------------------------
 
-function phaseLabel(data, list) {
+function phaseLabel(data) {
   if (!data.started) return "Lobby";
-  if (list.length && list.every((p) => p.level_2_completed === true)) return "Finalizado";
-  return "En curso";
+  if (!everyoneCompleted(data.players, "level_1_completed")) return "Nivel 1";
+  if (!everyoneCompleted(data.players, "level_2_completed")) return "Nivel 2";
+  return "Finalizado";
 }
 
 function render(data) {
@@ -116,7 +117,7 @@ function render(data) {
   const required = data.required_players || 0;
 
   $("#dash-title").textContent = "Sala " + state.roomId;
-  $("#dash-phase").textContent = phaseLabel(data, list);
+  $("#dash-phase").textContent = phaseLabel(data);
   $("#dash-joined").textContent = String(total);
   $("#dash-required-view").textContent = String(required);
 
@@ -131,7 +132,7 @@ function render(data) {
   startBtn.textContent = data.started ? "Partida en curso" : "▶️ Iniciar partida";
 
   $("#dash-hint").textContent = data.started
-    ? "Cada jugador pasa solo al siguiente nivel cuando completa el anterior."
+    ? "Cada nivel se desbloquea solo cuando todos los jugadores conectados completan el anterior."
     : `Se necesitan jugadores. Recomendado: ${required}.`;
 
   renderRoster(list);

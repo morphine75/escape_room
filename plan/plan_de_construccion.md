@@ -15,11 +15,11 @@ Los documentos dejan puntos abiertos. Estas son las resoluciones adoptadas:
 | **Tamaño del grid** | REQUIREMENTS dice 4×4 (FR-2.1); DESIGN dice 5×5/6×6 | Usar **7×7** (antes 5×5; se amplió con el rework en tiempo real), constante `GRID_SIZE`. La discrepancia con FR-2.1 queda documentada (el diseño prevalece sobre la spec). |
 | **Timeout de "I Shot The Serif"** | El diseño no lo define | **Reintento automático**: al agotarse el tiempo se genera un grid nuevo y se reinicia la ronda, sin penalización. Nunca bloquea al grupo. |
 | **Tolerancia de "Shape Type"** | `tolerance = 20 px` ⇒ 85 % ≈ 3 px (inviable en táctil) | Escalar la tolerancia al canvas: **radio de acierto ≈ 8 % del lado menor** (~40–60 px en móvil). |
-| **Progresión entre niveles** | Antes: espera grupal y el dashboard avanzaba `current_phase` | **Individual y automática**: cada cliente pasa al siguiente nivel apenas supera el actual, sin esperar al grupo ni al coordinador. El coordinador solo inicia y reinicia la partida. |
+| **Progresión entre niveles** | Antes: el dashboard (abierto) avanzaba `current_phase` | **Automática en el cliente**: cada celular desbloquea el siguiente nivel cuando todos los jugadores conectados completaron el actual, sin acción del coordinador. El coordinador solo inicia y reinicia la partida. |
 | **Asignación Nivel 2** | "El coordinador define N al desbloquear" | El **cliente** se autoasigna al completar el Nivel 1, con `transaction()` sobre `players`: toma el juego con menos jugadores (empate → `serif`). |
 | **Fase 3** | Sin definir | **No se implementa mecánica.** El juego concluye al terminar la Fase 2: tras completar el Nivel 2 el juego finaliza con la pantalla de victoria grupal. |
 | **Presencia / desconexión** | NFR-4 | `onDisconnect()` de Firebase marca jugadores desconectados; `localStorage` reanuda la sesión tras un refresh. |
-| **Mecánica del Nivel 1** | El modo "armar lista de comandos y ejecutar" (puerta `decryptGate`, agentes con HP) fue reemplazado | **Arcade en tiempo real estilo Pac-Man**: 1 agente persigue por BFS (sin aviso emergente al ser atrapado), el 📞 deambula, DISPARAR (3 balas, congela 4 s), BYPASS (3 usos, enfriamiento 1,5 s, reconstruye el laberinto) y ENCRYPT (1 uso, congela 5 s al agente más cercano). Si atrapan al héroe se reinicia con laberinto nuevo, intentos ilimitados. |
+| **Mecánica del Nivel 1** | El modo "armar lista de comandos y ejecutar" (puerta `decryptGate`, agentes con HP) fue reemplazado | **Arcade en tiempo real estilo Pac-Man**: 1 agente persigue por BFS (todos los avisos van a la línea de estado, sin notificaciones emergentes), el 📞 deambula, DISPARAR (3 balas, congela 4 s), BYPASS (3 usos, enfriamiento 1,5 s, reconstruye el laberinto) y ENCRYPT (1 uso, congela 5 s al agente más cercano). Si atrapan al héroe se reinicia con laberinto nuevo, intentos ilimitados. |
 
 ---
 
@@ -101,10 +101,10 @@ Firebase se importa por ESM desde el CDN de gstatic (v10.7.1), como en el diseñ
 - **Entregable:** un jugador alcanza el 📞 y se persiste su estado.
 
 ### Fase 3 — Sincronización y progresión de fases (FR-3, FR-4) (M)
-- `sync.js`: listener de la sala; `app.js` elige la pantalla según el progreso **propio** del jugador.
-- Al superar el Nivel 1, `completeLevel1()` (`room.js`) marca el nivel y asigna el juego del Nivel 2 en una transacción → el jugador pasa directo al Nivel 2.
-- Al superar el Nivel 2: pantalla de misión completada con contador del equipo en vivo. No hay Fase 3.
-- **Entregable:** cada jugador avanza de nivel sin recargar y sin esperar a nadie.
+- `sync.js`: listener de la sala + `everyoneCompleted()` (todos los jugadores conectados completaron un nivel).
+- Al superar el Nivel 1, `completeLevel1()` (`room.js`) marca el nivel y asigna el juego del Nivel 2 en una transacción → pantalla de espera grupal.
+- Cada cliente desbloquea el siguiente nivel apenas `everyoneCompleted()` es verdadero; tras el Nivel 2, victoria grupal. No hay Fase 3.
+- **Entregable:** al completar todos, todas las pantallas pasan de nivel solas, sin recargar ni depender del dashboard.
 
 ### Fase 4 — Nivel 2A: "I Shot The Serif" (M)
 - Reparto: autoasignación balanceada en `completeLevel1()` (ver Fase 3).

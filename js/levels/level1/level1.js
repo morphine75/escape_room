@@ -7,9 +7,10 @@
 //     agent freezes it for a few seconds.
 //   - BYPASS rebuilds the maze live (limited uses + cooldown).
 //   - ENCRYPT freezes the nearest active agent (single use per attempt).
-// If the agent catches the hero the attempt restarts with a fresh maze (no toast:
-// it would cover the controls; the HUD status line reports it instead), until the
+// If the agent catches the hero the attempt restarts with a fresh maze, until the
 // hero reaches the phone, which marks level_1_completed in Firebase.
+// All feedback goes to the HUD status line, never to toasts: toasts sit at the
+// bottom of the screen, over the D-pad and action buttons, and blocked play.
 import {
   GRID_SIZE,
   AGENT_COUNT,
@@ -18,7 +19,7 @@ import {
   openCells,
   bfsDistances
 } from "./generator.js";
-import { $, vibrate, toast } from "../../ui.js";
+import { $, vibrate } from "../../ui.js";
 
 // --- Tuning ------------------------------------------------------------------
 const HERO_MS = 150; // time per cell for the hero
@@ -34,6 +35,9 @@ const BYPASS_USES = 3;
 const BYPASS_COOLDOWN_MS = 1500;
 const ENCRYPT_USES = 1;
 const AMMO = 3;
+
+const DEFAULT_STATUS = "Llegá al 📞 y esquivá al 🕵🏻";
+const STATUS_MS = 1800; // how long a transient status message stays
 
 const DIRS = {
   up: { x: 0, y: -1 },
@@ -84,6 +88,22 @@ export function initLevel1({ onComplete } = {}) {
   let phoneAcc = 0;
   let projAcc = 0;
   let agentAcc = new Array(AGENT_COUNT).fill(0);
+  let statusTimer = 0;
+
+  // Shows a message in the HUD status line. `kind` (info / warning / error /
+  // success) sets its colour; after `ms` it reverts to the default hint
+  // (ms = 0 keeps it until the next message).
+  function setStatus(msg, kind = "info", ms = STATUS_MS) {
+    statusEl.textContent = msg;
+    statusEl.dataset.kind = kind;
+    clearTimeout(statusTimer);
+    if (ms) {
+      statusTimer = setTimeout(() => {
+        statusEl.textContent = DEFAULT_STATUS;
+        statusEl.dataset.kind = "info";
+      }, ms);
+    }
+  }
 
   // --- Tokens (hero / agents / phone float above the maze grid) --------------
   function makeToken(cls, emoji) {
@@ -181,7 +201,7 @@ export function initLevel1({ onComplete } = {}) {
     state.attempts = 1;
     state.solved = false;
     newAttempt();
-    statusEl.textContent = "Llegá al 📞 y esquivá al 🕵🏻";
+    setStatus(DEFAULT_STATUS, "info", 0);
     if (isActive() && !document.hidden) start();
   }
 
@@ -304,9 +324,8 @@ export function initLevel1({ onComplete } = {}) {
     state.solved = true;
     state.projectiles = [];
     stop();
-    statusEl.textContent = "¡Cabina alcanzada! 📞";
+    setStatus("¡Exploit ejecutado! Cabina alcanzada 📞", "success", 0);
     vibrate([30, 60, 30]);
-    toast("¡Exploit ejecutado! Llegaste a la cabina 📞", "success");
     onComplete && onComplete();
   }
 
@@ -326,7 +345,7 @@ export function initLevel1({ onComplete } = {}) {
 
   function fire() {
     if (state.solved || state.ammo <= 0) {
-      if (state.ammo <= 0) toast("Sin municiones", "warning");
+      if (state.ammo <= 0) setStatus("Sin municiones 🔫", "warning");
       return;
     }
     state.ammo--;
@@ -344,11 +363,11 @@ export function initLevel1({ onComplete } = {}) {
     if (state.solved) return;
     const t = now();
     if (state.bypassUses <= 0) {
-      toast("Ya no te quedan BYPASS", "warning");
+      setStatus("Ya no te quedan BYPASS", "warning");
       return;
     }
     if (t - state.lastBypassAt < BYPASS_COOLDOWN_MS) {
-      toast("BYPASS enfriando…", "warning");
+      setStatus("BYPASS enfriando…", "warning");
       return;
     }
     state.lastBypassAt = t;
@@ -363,7 +382,7 @@ export function initLevel1({ onComplete } = {}) {
     sizeTokens();
     paint(t);
     updateHud();
-    statusEl.textContent = "Laberinto reconfigurado ⚔️";
+    setStatus("Laberinto reconfigurado ⚔️");
     vibrate([15, 30, 15]);
   }
 
@@ -384,7 +403,7 @@ export function initLevel1({ onComplete } = {}) {
   function encrypt() {
     if (state.solved) return;
     if (state.encryptUses <= 0) {
-      toast("ENCRYPT ya fue usado", "warning");
+      setStatus("ENCRYPT ya fue usado", "warning");
       return;
     }
     const t = now();
@@ -400,14 +419,14 @@ export function initLevel1({ onComplete } = {}) {
       }
     });
     if (bestIndex === -1) {
-      toast("No hay agentes activos para congelar", "warning");
+      setStatus("No hay agentes activos para congelar", "warning");
       return;
     }
     state.encryptUses--;
     state.agents[bestIndex].frozenUntil = t + FREEZE_ENCRYPT_MS;
     updateHud();
     paint(t);
-    statusEl.textContent = "Agente congelado ❄️";
+    setStatus("Agente congelado ❄️");
     vibrate([20, 40, 20]);
   }
 
@@ -473,7 +492,7 @@ export function initLevel1({ onComplete } = {}) {
     if (state.pendingReset) {
       state.pendingReset = false;
       newAttempt();
-      statusEl.textContent = "🚨 ¡Te atraparon! Laberinto nuevo";
+      setStatus("🚨 ¡Te atraparon! Laberinto nuevo", "error");
     }
     paint(t);
   }

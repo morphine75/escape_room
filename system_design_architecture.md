@@ -72,7 +72,7 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
 
 | Field | Description |
 |-------|-------------|
-| `current_phase` | Legacy room phase. Since decision #12 players advance individually, so no client reads it; the dashboard only resets it to `1` when the room returns to the lobby. |
+| `current_phase` | Legacy room phase. Since decision #12 each client derives the unlocked level from the players' progress, so no client reads it; the dashboard only resets it to `1` when the room returns to the lobby. |
 | `started` | `false` while the room is in the lobby; set to `true` when the coordinator starts the round. Distinguishes the lobby from Level 1. |
 | `required_players` | Target number of players needed to start and advance. |
 | `level_1_completed` / `level_2_completed` | Individual progress per level. |
@@ -99,21 +99,22 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
          ▼ (Coordinator presses "Start round" → started = true)
 [ Screen 3: Level 1 - Matrix Protocol ] ─── (Generates a local 7×7 maze + real-time game loop)
          │      ↺ (Caught by the Agent → new maze, retry; unlimited attempts)
-         ▼ (Player intercepts the wandering phone booth 📞)
-[ Transition: "Level 1 cleared — loading Level 2…" ]
+         ▼ (Player intercepts the wandering phone booth 📞 → self-assigns serif / vector)
+[ Screen 4: Level cleared / Group Wait ] ─── ("1 / 2 completaron")
          │
-         ▼ (Client self-assigns serif / vector in a transaction — no waiting for the group or the coordinator)
+         ▼ (Every client sees ALL active players with level_1_completed = true → unlocks by itself)
 [ Screen 6a: Level 2 - "I Shot The Serif" ] ──────┐
          │ (30 s timer, max 2 errors, eliminate serifs) │
-[ Screen 6b: Level 2 - "Shape Type" ] ────────────┤ (Each player plays their own game)
+[ Screen 6b: Level 2 - "Shape Type" ] ────────────┤ (Parallel execution)
          │ (Drag nodes to match vector curves)     │
          ▼                                          │
-[ Screen 8: Mission Complete ] <───────────────────┘
-           (Shows live team progress "X / N completed"; turns into
-            "the whole team completed the mission" when everyone finishes)
+[ Screen 7: Level cleared / Group Wait ] <─────────┘
+         │
+         ▼ (ALL active players have level_2_completed = true)
+[ Screen 8: Group Victory / Game Complete ]
 ```
 
-> **Individual progression (decision #12):** the coordinator only starts the round. From then on each client moves to the next level **as soon as the player clears the current one**; nobody waits for the rest of the group or for a coordinator action. Screen choice depends only on the player's own `level_1_completed` / `level_2_completed` / `level_2_game`.
+> **Automatic group progression (decision #12):** the coordinator only starts the round. A player who clears a level waits on the group-wait screen; the moment **every active player** (all players still connected, see section 6.1) has cleared it, each client unlocks the next level **by itself** — no coordinator action and no dashboard needs to be open. A player alone in the room advances immediately.
 
 > **Reset / replay:** the coordinator can return the room to the lobby at any time. **Restart round** keeps the registered players and clears their progress; **Wipe room** removes all players. Both take effect in real time on every player's device (see section 8.4).
 
@@ -192,8 +193,9 @@ Level 1 is a **real-time arcade** in the spirit of Pac-Man (it replaced the earl
    The game loop runs on `requestAnimationFrame` with fixed-step accumulators per entity (frame delta clamped to 150 ms). It **only runs while the Level 1 screen is visible and the tab is in the foreground** (`MutationObserver` on `body[data-screen]` + `visibilitychange`).
 
 4. **Win / lose:**
-   * **Success:** the hacker reaches the `📞` cell → the loop stops, `onComplete()` calls `completeLevel1()` (section 7.1), which writes `level_1_completed: true` and the Level 2 game in one transaction → the player goes **straight to Level 2**.
-   * **Caught:** an active (not frozen) agent shares the hacker's cell → the attempt counter increases and the level **restarts with a brand-new maze**, positions and power-ups. Attempts are unlimited. **No toast is shown** (toasts sit at the bottom of the screen, over the D-pad and action buttons, and blocked play); the restart is reported in the HUD status line ("🚨 ¡Te atraparon! Laberinto nuevo") plus a vibration.
+   * **Success:** the hacker reaches the `📞` cell → the loop stops, `onComplete()` calls `completeLevel1()` (section 7.1), which writes `level_1_completed: true` and the Level 2 game in one transaction → group-wait screen ("1 / 2 completaron"), and Level 2 starts by itself when every active player is done (immediately if the player is alone).
+   * **Caught:** an active (not frozen) agent shares the hacker's cell → the attempt counter increases and the level **restarts with a brand-new maze**, positions and power-ups. Attempts are unlimited. The restart is reported in the HUD status line ("🚨 ¡Te atraparon! Laberinto nuevo") plus a vibration.
+   * **Feedback = HUD status line, never toasts.** Toasts sit at the bottom of the screen, over the D-pad and action buttons, and blocked play. Every Level 1 message (capture, BYPASS / ENCRYPT results, "Sin municiones", "BYPASS enfriando…", no uses left, win) is written to `#l1-status` via `setStatus(msg, kind, ms)`: `kind` colours it (warning = amber, error = red, success = green) and after ~1.8 s it reverts to the default hint "Llegá al 📞 y esquivá al 🕵🏻".
 
 5. **Procedural generation:**
    * Each client generates its own maze locally (zero server load) with random walls, retried until the maze is **fully connected** — every open cell is reachable from the start — so the agents can always chase and the phone is always reachable.
@@ -251,27 +253,36 @@ const regenerateWalls = (size, keepOpen) => makeSolvableWalls(size, keepOpen);
 
 ### 6.1. Real-Time Listener (Client JS)
 
-Each client subscribes to its room and picks its screen **from its own progress only** (`js/app.js`):
+Each client subscribes to its room and picks its screen from the live state (`js/app.js`). Level unlocks are computed **on every client** with `everyoneCompleted()` (`js/sync.js`):
 
 ```javascript
+// Active players gate a level: everyone still connected, plus the player itself.
+// A player who dropped out (connected === false) does not block the group.
+const activePlayers = (players, selfId) =>
+  Object.entries(players || {})
+    .filter(([id, p]) => p && (p.connected !== false || id === selfId))
+    .map(([, p]) => p);
+const everyoneCompleted = (players, field, selfId) => {
+  const list = activePlayers(players, selfId);
+  return list.length > 0 && list.every(p => p[field] === true);
+};
+
 onValue(ref(db, `rooms/${roomId}`), (snapshot) => {
   const data = snapshot.val();
   const me = data?.players?.[playerId];
   if (!data || !me) return backToRegistration();
 
-  if (!data.started) return renderLobby(data);            // coordinator has not started yet
+  if (!data.started) return renderLobby(data);                  // coordinator has not started yet
   if (!me.level_1_completed) return renderLevel1(data);
-  if (!me.level_2_completed) {
-    if (me.level_2_game === "serif") return renderSerif();
-    if (me.level_2_game === "vector") return renderVector();
-    completeLevel1(roomId, playerId);                      // assignment missing (e.g. refresh)
-    return renderLoadingLevel2();
-  }
-  renderMissionComplete(data);                              // live team counter X / N
+  if (!me.level_2_game) { completeLevel1(roomId, playerId); return renderWait(data, 1); } // e.g. refresh
+  if (!everyoneCompleted(data.players, "level_1_completed", playerId)) return renderWait(data, 1);
+  if (!me.level_2_completed) return me.level_2_game === "serif" ? renderSerif() : renderVector();
+  if (!everyoneCompleted(data.players, "level_2_completed", playerId)) return renderWait(data, 2);
+  renderGroupVictory();
 });
 ```
 
-> **Resolved (decision #12):** there are no group-wide phase transitions any more. The coordinator only writes `started` (start / reset); each player advances on their own.
+> **Resolved (decision #12):** there is no phase write any more. Since every client evaluates the same rule over the same data, all of them unlock the next level at the same moment, without the coordinator or the dashboard. The coordinator only writes `started` (start / reset).
 
 ### 6.2. Marking Individual Progress
 
@@ -349,7 +360,7 @@ Eliminate all letters displayed with **serifs** before the 30-second timer expir
    - **Only 2 errors are allowed per round** (`MAX_ERRORS = 2`): the 2nd error **restarts the round** with a new grid, a full timer, and score / errors back to zero.
 5. **Success condition:** All serif letters eliminated, or the timer reaches zero.
    - If all serifs are eliminated: `level_2_completed: true` and the score is saved in `level_2_score`.
-   - The player moves straight to the mission-complete screen (with the live team counter).
+   - The player moves to the group-wait screen; the group-victory screen appears when every active player is done.
 
 > **Resolved:** if the timer hits zero without completion, the game **automatically restarts with a new grid**. No penalty is applied and the player is never blocked, so the rest of the group is not held up.
 
@@ -460,9 +471,9 @@ function calculatePrecision(currentNodePos, targetNodePos, tolerance) {
 
 ### 8.4. Coordinator Dashboard
 
-Big-screen panel used by the facilitator and the only place with room-level controls. Players advance between levels on their own (decision #12), so the dashboard does not drive phase transitions.
+Big-screen panel used by the facilitator and the only place with room-level controls. Level unlocks happen on the clients (decision #12), so the dashboard does not drive phase transitions and does not need to stay open.
 
-* **Live view:** room code, status (Lobby / En curso / Finalizado), joined / required players, a per-player roster (Level 1 ✅/⏳, Level 2 ✅/⏳, assigned mini-game, score/precision), a `Nivel 1: X / N · Nivel 2: Y / N` summary and an overall progress bar.
+* **Live view:** room code, status (Lobby / Nivel 1 / Nivel 2 / Finalizado, using the same `everyoneCompleted()` rule as the clients), joined / required players, a per-player roster (Level 1 ✅/⏳, Level 2 ✅/⏳, assigned mini-game, score/precision), a `Nivel 1: X / N · Nivel 2: Y / N` summary and an overall progress bar.
 * **Start round:** writes `started: true`, unlocking Level 1.
 * **Restart round:** clears every player's progress (`level_1_completed`, `level_2_completed`, assigned mini-game, score/precision) and returns the room to the lobby (`current_phase: 1`, `started: false`), **keeping the registered players** so the same group can replay.
 * **Wipe room:** deletes all players and returns to the lobby, ready for a brand-new group.
@@ -485,9 +496,9 @@ Consolidated record of the design points that were previously left open, togethe
 | 6 | **Phase 3** | Undefined | **Not implemented.** The game **ends after Level 2**; completing it shows the group-victory screen. |
 | 7 | **Presence / disconnection** | NFR-4 | `onDisconnect()` marks players as disconnected; `localStorage` restores `roomId`/`playerId` so a refresh resumes the session. |
 | 8 | **Reset / replay between groups** | Not defined; a finished room could not be reused for the next group | The dashboard offers **Restart round** (reset progress, keep players) and **Wipe room** (remove players), both returning to the lobby. Player progress and `current_phase` are reset transactionally; players' tabs return to the lobby and levels reinitialise without a page reload. |
-| 9 | **Live-session deadlock** | A disconnected player can never complete a level, which would block the automatic phase advance | ~~Force phase advance button.~~ **Obsolete with #12:** nobody waits for other players, so a disconnected player cannot block anyone; the button was removed. |
+| 9 | **Live-session deadlock** | A disconnected player can never complete a level, which would block the automatic phase advance | ~~Force phase advance button.~~ **Obsolete with #12:** only *connected* players gate a level, so a disconnected player cannot block the group; the button was removed. |
 | 10 | **Level 1 ambience** | A Matrix-styled background was wanted, but a static page feels flat | An animated **"digital rain"** canvas (`js/digitalrain.js`) renders falling katakana / Latin / binary glyphs with a shining head glyph and fading trail behind the Level 1 screen. It runs only while the screen is visible and the tab is foregrounded, sits at ~50 % opacity for readability, and shows a single static frame under `prefers-reduced-motion`. |
 | 11 | **Level 1 gameplay** | The original "build a command list, then run the exploit" mode (5×5, agent HP, `decryptGate` puzzle) was replaced by a real-time mode; FR-2.2 asks for basic algorithmic logic | Rebuilt as a **real-time maze arcade** (Pac-Man style) on a 7×7 maze: agents chase via BFS (reduced to 1, see #13), the phone wanders, **DISPARAR** (3 rounds, 4 s freeze), **BYPASS** (3 uses, 1.5 s cooldown, live maze rebuild) and **ENCRYPT** (1 use, 5 s freeze of the nearest agent). Being caught restarts with a new maze, unlimited attempts. The agent moves at half the hacker's speed (`AGENT_MS = 300`). Logic is exercised through route planning and resource management instead of command sequencing; the design prevails over FR-2.2. |
-| 12 | **Phase progression** | Players waited on a group-wait screen until **everyone** finished a level, and the coordinator's dashboard advanced the phase and assigned Level 2 | **Individual, automatic progression:** as soon as a player clears a level their client moves to the next one, with no wait and no coordinator action. On clearing Level 1 the client self-assigns its Level 2 game (transaction, balanced split). After Level 2 the player sees the mission-complete screen with a live team counter. The coordinator only starts and resets the round. This departs from FR-3.3 / FR-4.1 (group-gated unlock); the design prevails. |
-| 13 | **Level 1 tuning** | With 2 agents and a toast on every capture, the restart toast covered the controls and the game could not be played | **1 agent** (`AGENT_COUNT = 1`) and **no toast on capture**: the restart is shown in the HUD status line plus a vibration. |
+| 12 | **Phase progression** | Levels unlocked only when the coordinator's dashboard (which had to be open) advanced `current_phase`; with the dashboard closed, players stayed on the wait screen | **Automatic, client-side group progression:** a level unlocks when **every active player** (connected, plus the player itself) has cleared the previous one. Each client evaluates this itself (`everyoneCompleted()` in `js/sync.js`), so no coordinator action is needed and a player alone in the room advances immediately. On clearing Level 1 the client self-assigns its Level 2 game (transaction, balanced split). The coordinator only starts and resets the round. A disconnected player does not block the rest; they continue on their own when they reconnect. |
+| 13 | **Level 1 tuning** | With 2 agents and a toast on every capture, the restart toast covered the controls and the game could not be played | **1 agent** (`AGENT_COUNT = 1`) and **no toasts at all in Level 1**: every message (capture, power-up results and warnings, win) goes to the HUD status line, colour-coded, reverting to the default hint after ~1.8 s. |
 | 14 | **"I Shot The Serif" errors** | Wrong taps had no consequence beyond lost time | **Max 2 errors per round** (`MAX_ERRORS = 2`): the 2nd wrong tap restarts the round with a new grid (score, errors and timer reset). An `❌ n/2` counter is shown in the header. |

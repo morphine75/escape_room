@@ -83,13 +83,13 @@ so a simple HTTP host is enough.
 4. Everyone plays **Nivel 1 (Matrix Protocol)** individually: a real-time 7×7 maze
    arcade where they must reach the wandering phone booth 📞 while an agent 🕵🏻 chases
    them (see controls below). Getting caught restarts with a new maze, attempts are unlimited.
-5. As soon as a player clears Nivel 1 they go **straight to Nivel 2** — no waiting for the
-   rest of the group or for the coordinator. Their client assigns them `serif` or `vector`
-   (whichever has fewer players so far, keeping the split balanced).
+5. A player who clears Nivel 1 waits for the group; when **every connected player** is done,
+   Nivel 2 starts **by itself on every phone** — no coordinator action, the dashboard does not
+   even need to be open (a player alone in the room advances immediately). Each client assigns
+   itself `serif` or `vector` (whichever has fewer players so far, keeping the split balanced).
 6. Each player solves their Nivel 2 mini-game. In "I Shot The Serif" only **2 errors** are
    allowed: the 2nd wrong tap restarts the round.
-7. Finishing Nivel 2 shows the mission-complete screen with a live team counter; when
-   everyone is done it reads "¡Todo el equipo completó la misión!".
+7. When every connected player completes Nivel 2, everyone sees the group-victory screen.
 
 ### Nivel 1 controls
 
@@ -100,7 +100,8 @@ so a simple HTTP host is enough.
 | `B` / ⚔️ BYPASS | Rebuild the maze live and move the phone (3 uses, 1.5 s cooldown) |
 | `E` / 🧊 ENCRYPT | Freeze the nearest agent for 5 s (1 use) |
 
-Ammo and uses refill on every new attempt.
+Ammo and uses refill on every new attempt. All Nivel 1 messages appear in the status line
+above the board (no pop-up notifications over the controls).
 
 ### Coordinator controls
 
@@ -118,5 +119,5 @@ on the next **Iniciar partida** — no page reload needed.
 
 See `system_design_architecture.md` section 9 (grid size, Serif timeout, Shape Type
 tolerance, single writer for `current_phase`, Level 2 assignment, no Phase 3, presence,
-reset / replay, Level 1 digital rain, the real-time Level 1 arcade, individual automatic
-progression, 1 agent without capture toasts, and the 2-error limit in Serif).
+reset / replay, Level 1 digital rain, the real-time Level 1 arcade, automatic client-side
+group progression, 1 agent and status-line messages in Nivel 1, and the 2-error limit in Serif).

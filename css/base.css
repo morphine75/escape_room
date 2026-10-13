@@ -101,7 +101,9 @@ p { margin: 0 0 8px; }
   background: #0b1220;
   border: 1px solid var(--line);
   color: var(--text);
-  font-size: 1rem;
+  /* >= 16px: smaller inputs make iOS Safari auto-zoom on focus (and it may not
+     zoom back out). */
+  font-size: max(16px, 1rem);
 }
 label { font-size: 0.85rem; color: var(--muted); }
 
@@ -199,3 +201,13 @@ ul { margin: 0; padding-left: 18px; }
 .modal .row { justify-content: flex-end; margin-top: 8px; }
 
 .hidden { display: none !important; }
+
+/* --- No zoom on the player app (index.html; see js/nozoom.js) --------------- */
+/* touch-action: manipulation disables double-tap zoom (iOS 13+, Chrome,
+   Firefox) without affecting taps or scrolling; text-size-adjust stops iOS from
+   enlarging text when the phone is rotated. */
+html {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}

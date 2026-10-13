@@ -2,6 +2,7 @@
 // The coordinator only starts the round. After that, every client unlocks the next
 // level by itself as soon as all active players have cleared the current one: no
 // coordinator action is needed. Screen choice is driven by the live room state.
+import "./nozoom.js"; // must run first: blocks pinch / double-tap / Ctrl zoom
 import { isConfigured } from "./firebase.js";
 import { subscribeRoom, activePlayers, everyoneCompleted } from "./sync.js";
 import {

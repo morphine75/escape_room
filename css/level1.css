@@ -69,8 +69,12 @@ body[data-screen="screen-level1"] .app-header {
   --n: 7;
   --cell: 40px;
   position: relative;
-  width: 100%;
-  max-width: 420px;
+  /* The board shrinks with the screen height so the whole level (header, HUD,
+     board, D-pad and action row) fits without scrolling. --l1-chrome is the
+     height of everything that is not the board. */
+  --l1-chrome: 340px;
+  width: min(100%, 420px, calc(100vh - var(--l1-chrome)));
+  width: min(100%, 420px, calc(100dvh - var(--l1-chrome)));
   margin: 0 auto;
   aspect-ratio: 1 / 1;
   background: #05080a;
@@ -148,8 +152,16 @@ body[data-screen="screen-level1"] .app-header {
 }
 
 /* --- Controls --------------------------------------------------------------- */
+/* Compact so the level fits a phone screen without scrolling: a small D-pad
+   cross and the three actions (DISPARAR / BYPASS / ENCRYPT) on a single row. */
 
-.l1-controls { display: flex; flex-direction: column; gap: 10px; }
+#screen-level1 {
+  padding-top: 8px;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 10px);
+  gap: 8px;
+}
+
+.l1-controls { display: flex; flex-direction: column; gap: 8px; }
 
 .l1-dpad {
   display: grid;
@@ -158,16 +170,18 @@ body[data-screen="screen-level1"] .app-header {
     ". up ."
     "left mid right"
     ". down .";
-  gap: 8px;
+  gap: 6px;
+  width: min(100%, 250px);
+  margin: 0 auto;
   touch-action: none;
 }
 .l1-dir {
-  min-height: 52px;
+  min-height: 46px;
   background: #0d1117;
   border: 1px solid #00ff66;
   border-radius: 10px;
   color: #00ff66;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
 }
 .l1-dir.up { grid-area: up; }
 .l1-dir.down { grid-area: down; }
@@ -175,21 +189,31 @@ body[data-screen="screen-level1"] .app-header {
 .l1-dir.right { grid-area: right; }
 .l1-dir:active { background: #00ff66; color: #000; }
 
-.l1-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.l1-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  touch-action: manipulation;
+}
 .l1-act {
-  min-height: 52px;
+  min-height: 50px;
+  min-width: 0;
+  padding: 4px 2px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 2px;
   background: #0d1117;
   border: 1px solid #ffb700;
   border-radius: 10px;
   color: #ffb700;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.72rem;
+  line-height: 1.1;
+  white-space: nowrap;
 }
-.l1-act.fire { grid-column: 1 / -1; border-color: #ff0055; color: #ff0055; }
+.l1-act.fire { border-color: #ff0055; color: #ff0055; }
 .l1-act.encrypt { border-color: #58c8ff; color: #58c8ff; }
 .l1-act:active { filter: brightness(1.4); }
 .l1-act:disabled { opacity: 0.4; }
@@ -197,8 +221,12 @@ body[data-screen="screen-level1"] .app-header {
 .l1-use {
   background: rgba(255, 255, 255, 0.12);
   border-radius: 999px;
-  padding: 1px 8px;
-  font-size: 0.8rem;
+  padding: 0 8px;
+  font-size: 0.72rem;
 }
 
 .l1-help { font-size: 0.68rem; text-align: center; color: #4fbf7f; margin: 0; }
+/* Keyboard hints are useless on touch screens and cost vertical space. */
+@media (pointer: coarse) {
+  .l1-help { display: none; }
+}

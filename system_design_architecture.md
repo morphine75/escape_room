@@ -153,14 +153,16 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
 |       [ ⬅️ ]        [ ➡️ ]          | <-- ZONE 2: touch D-pad
 |             [ ⬇️ ]                 |
 +------------------------------------+
-| [        🔫 DISPARAR  (3)        ] | <-- ZONE 3: actions (remaining uses)
-| [ ⚔️ BYPASS (3) ] [ 🧊 ENCRYPT (1) ] |
-| Flechas/WASD · ESPACIO · B · E     | <-- Keyboard help
+| [🔫 DISPARAR][⚔️ BYPASS][🧊 ENCRYPT] | <-- ZONE 3: the 3 actions on ONE row
+| [    3     ][    3    ][    1    ] |     (remaining uses under each label)
+| Flechas/WASD · ESPACIO · B · E     | <-- Keyboard help (hidden on touch screens)
 +------------------------------------+
 
 ```
 
 The whole Matrix digital rain keeps running behind the board (section 5.1).
+
+**No scrolling:** the whole level must fit the phone screen. The D-pad is a compact cross (max 250 px wide, 46 px buttons), the three actions share a single row, the keyboard help is hidden on touch screens (`pointer: coarse`), and the board is sized with `width: min(100%, 420px, 100dvh − 340px)` so it shrinks on short screens. Verified without scrolling at 360×640, 360×740, 390×844 and 412×915.
 
 ### 5.3. Level 1 Game Mechanics
 

@@ -1,0 +1,36 @@
+---
+title: Diagrama de flujo — Panel del coordinador y gestión de salas
+---
+flowchart TD
+  A([Abre dashboard.html]) --> L[Lista de salas en vivo<br/>código · jugadores · estado]
+  L --> Q{Acción}
+  Q -- Crear --> CR[/Código + N requeridos/] --> EX{¿Ya existe?}
+  EX -- Sí --> ERR1[Error: esa sala ya existe] --> L
+  EX -- No --> NEW[Crear rooms/código<br/>started = false] --> ROOM
+  Q -- Abrir --> ROOM[Vista de sala:<br/>roster + progreso por nivel]
+  Q -- Eliminar --> DEL
+
+  ROOM --> Q2{Acción en la sala}
+  Q2 -- Iniciar partida --> ST[started = true<br/>jugadores pasan al Nivel 1] --> ROOM
+  Q2 -- Reiniciar --> RS[Confirmar → limpiar progreso<br/>conservar jugadores · started = false] --> ROOM
+  Q2 -- Vaciar --> VA[Confirmar → eliminar jugadores<br/>started = false] --> ROOM
+  Q2 -- "← Salas" --> L
+  Q2 -- Eliminar sala --> DEL
+
+  DEL{¿La sala tiene jugadores?}
+  DEL -- Sí --> NO[Botón deshabilitado /<br/>aviso: vaciala primero] --> ROOM
+  DEL -- No --> CONF{¿Confirma?}
+  CONF -- No --> L
+  CONF -- Sí --> TX[Transacción: re-verificar<br/>que siga vacía y borrar]
+  TX --> TXR{¿Se unió alguien<br/>en el medio?}
+  TXR -- Sí --> NO
+  TXR -- No --> GONE[Sala eliminada<br/>código queda cargado] --> RE{¿Volver a crearla?}
+  RE -- Sí --> NEW
+  RE -- No --> L
+
+  classDef term fill:#1d4ed8,stroke:#93c5fd,color:#fff
+  classDef dec fill:#422006,stroke:#f59e0b,color:#fff
+  classDef danger fill:#450a0a,stroke:#ef4444,color:#fff
+  class A term
+  class Q,EX,Q2,DEL,CONF,TXR,RE dec
+  class TX,GONE,NO,ERR1 danger

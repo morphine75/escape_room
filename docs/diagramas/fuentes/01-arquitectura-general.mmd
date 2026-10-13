@@ -1,0 +1,32 @@
+---
+title: Arquitectura general — Hack the Institute Mission Zero
+---
+flowchart LR
+  subgraph Clientes["Dispositivos (navegador web)"]
+    direction TB
+    P["📱 Celulares de los jugadores<br/><b>index.html</b> + app.js<br/>registro · lobby · niveles · espera · victoria"]
+    C["🖥️ Coordinador / proyector<br/><b>dashboard.html</b> + dashboard.js<br/>salas · inicio · reinicio · eliminación"]
+  end
+
+  subgraph Local["Lógica local del cliente"]
+    direction TB
+    L1["Nivel 1: laberinto 7×7<br/>generado en el cliente"]
+    L2["Nivel 2: Serif / Shape Type"]
+    LS["localStorage<br/>sesión roomId / playerId"]
+  end
+
+  WEB["🌐 Servidor web estático<br/>XAMPP o cualquier HTTP<br/>HTML · CSS · JS (ES modules)<br/>sin build ni backend propio"]
+  CDN["☁️ CDN gstatic.com<br/>Firebase Web SDK 10.7.1"]
+  DB[("☁️ Firebase Realtime Database<br/>rooms/{roomId}<br/>players/{playerId}")]
+
+  Clientes -- "1 · HTTP GET (carga inicial)" --> WEB
+  Clientes -- "2 · import del SDK" --> CDN
+  Clientes <== "3 · WebSocket en tiempo real<br/>onValue · update · runTransaction · onDisconnect" ==> DB
+  Clientes -. "4 · ejecuta en el dispositivo" .-> Local
+
+  classDef cloud fill:#1e293b,stroke:#f59e0b,color:#f8fafc
+  classDef client fill:#0f172a,stroke:#2563eb,color:#f8fafc
+  classDef local fill:#052e16,stroke:#22c55e,color:#f8fafc
+  class CDN,DB cloud
+  class P,C,WEB client
+  class L1,L2,LS local

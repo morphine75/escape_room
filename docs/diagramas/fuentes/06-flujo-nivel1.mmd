@@ -1,0 +1,30 @@
+---
+title: Diagrama de flujo — Nivel 1 Matrix Protocol (bucle en tiempo real)
+---
+flowchart TD
+  A([Nuevo intento]) --> G[Generar laberinto 7×7 conexo<br/>héroe en 0,0 · 📞 lejos · 1 agente lejos<br/>munición 3 · BYPASS 3 · ENCRYPT 1]
+  G --> F[requestAnimationFrame:<br/>acumular dt por entidad]
+  F --> V{¿Pantalla visible y<br/>pestaña en primer plano?}
+  V -- No --> P[Pausar bucle] --> V
+  V -- Sí --> H[Héroe: cada 150 ms avanza<br/>en la dirección elegida]
+  H --> AG[Agente: cada 300 ms<br/>paso BFS hacia el héroe<br/>salvo que esté congelado]
+  AG --> PH[📞: cada 420 ms se mueve<br/>al azar con 60 % de probabilidad]
+  PH --> PR[Proyectiles: cada 70 ms<br/>avanzan; si tocan al agente<br/>lo congelan 4 s]
+  PR --> C1{¿Héroe sobre el 📞?}
+  C1 -- Sí --> WIN[Línea de estado: Cabina alcanzada<br/>onComplete → completeLevel1] --> FIN([Nivel 1 superado])
+  C1 -- No --> C2{¿Agente activo sobre el héroe?}
+  C2 -- Sí --> CAUGHT[Intento + 1<br/>Línea de estado: 🚨 Te atraparon] --> A
+  C2 -- No --> F
+
+  IN[/Entrada del jugador/] -.-> D1[Flechas / WASD / D-pad<br/>→ dirección deseada]
+  IN -.-> D2[ESPACIO / DISPARAR<br/>→ proyectil si hay munición]
+  IN -.-> D3[B / BYPASS<br/>→ reconstruir muros y reubicar 📞<br/>3 usos, enfriamiento 1,5 s]
+  IN -.-> D4[E / ENCRYPT<br/>→ congelar agente más cercano 5 s<br/>1 uso]
+  D1 & D2 & D3 & D4 -.-> F
+
+  classDef term fill:#14532d,stroke:#22c55e,color:#fff
+  classDef dec fill:#422006,stroke:#f59e0b,color:#fff
+  classDef input fill:#1e293b,stroke:#94a3b8,color:#f8fafc
+  class A,FIN term
+  class V,C1,C2 dec
+  class IN,D1,D2,D3,D4 input

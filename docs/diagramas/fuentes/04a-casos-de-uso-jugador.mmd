@@ -1,0 +1,41 @@
+---
+title: Diagrama de casos de uso — Jugador
+---
+flowchart LR
+  J(["👤<br/>Jugador"])
+  SYS(["⚙️<br/>Sistema<br/>(cliente + Firebase)"])
+
+  subgraph S["Sistema: Hack the Institute — app del jugador"]
+    direction TB
+    UC1(["Unirse a una sala<br/>(código + nombre)"])
+    UC1a(["Validar sala existente,<br/>no iniciada y nombre único"])
+    UC2(["Esperar en el lobby"])
+    UC3(["Reanudar sesión tras recargar"])
+    UC4(["Jugar Nivel 1<br/>Matrix Protocol"])
+    UC4a(["Disparar 🔫"])
+    UC4b(["BYPASS ⚔️"])
+    UC4c(["ENCRYPT 🧊"])
+    UC5(["Jugar Nivel 2<br/>I Shot The Serif"])
+    UC6(["Jugar Nivel 2<br/>Shape Type"])
+    UC7(["Ver progreso del equipo<br/>(pantalla de espera)"])
+    UC8(["Ver victoria grupal"])
+    UC9(["Asignar juego del Nivel 2"])
+    UC10(["Desbloquear siguiente nivel<br/>cuando todos completan"])
+    UC11(["Marcar desconexión"])
+  end
+
+  J --- UC1 & UC2 & UC3 & UC4 & UC5 & UC6 & UC7 & UC8
+  UC1 -. "«include»" .-> UC1a
+  UC4a & UC4b & UC4c -. "«extend»" .-> UC4
+  UC4 -. "«include»" .-> UC9
+  UC9 --- SYS
+  UC10 --- SYS
+  UC11 --- SYS
+  UC7 -. "«include»" .-> UC10
+
+  classDef actor fill:#1d4ed8,stroke:#93c5fd,color:#fff
+  classDef uc fill:#1e293b,stroke:#94a3b8,color:#f8fafc
+  classDef sys fill:#422006,stroke:#f59e0b,color:#fff
+  class J actor
+  class SYS sys
+  class UC1,UC1a,UC2,UC3,UC4,UC4a,UC4b,UC4c,UC5,UC6,UC7,UC8,UC9,UC10,UC11 uc

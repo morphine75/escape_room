@@ -1,0 +1,48 @@
+---
+title: Arquitectura de módulos JavaScript (dependencias import)
+---
+flowchart TB
+  IDX["index.html<br/>(app del jugador)"] --> APP
+  DASHH["dashboard.html<br/>(panel del coordinador)"] --> DASH
+
+  APP["app.js<br/>controlador del jugador:<br/>elige pantalla según el estado"]
+  DASH["dashboard.js<br/>salas · inicio · reinicio · eliminación"]
+
+  subgraph Core["Núcleo compartido"]
+    direction LR
+    ROOM["room.js<br/>joinRoom · createRoom<br/>completeLevel1 · deleteRoomIfEmpty"]
+    SYNC["sync.js<br/>subscribeRoom(s)<br/>everyoneCompleted"]
+    SES["session.js<br/>localStorage"]
+    UI["ui.js<br/>pantallas · toasts · vibración"]
+    FBJS["firebase.js<br/>init SDK"]
+    CFG["firebase-config.js"]
+  end
+
+  subgraph Niveles["Niveles"]
+    direction LR
+    L1["level1/level1.js<br/>motor tiempo real"]
+    GEN["level1/generator.js<br/>laberinto + BFS"]
+    SER["level2/serif.js<br/>I Shot The Serif"]
+    VEC["level2/vector.js<br/>Shape Type"]
+    RAIN["digitalrain.js<br/>lluvia Matrix"]
+  end
+
+  SDK["☁️ Firebase SDK (gstatic CDN)"]
+
+  APP --> ROOM & SYNC & SES & UI & FBJS
+  APP --> L1 & SER & VEC & RAIN
+  DASH --> ROOM & SYNC & SES & UI & FBJS
+  L1 --> GEN & UI
+  SER --> UI
+  VEC --> UI
+  ROOM --> FBJS & SES
+  SYNC --> FBJS
+  ROOM & SYNC & DASH --> SDK
+  FBJS --> CFG & SDK
+
+  classDef entry fill:#1d4ed8,stroke:#93c5fd,color:#fff
+  classDef lvl fill:#052e16,stroke:#22c55e,color:#f8fafc
+  classDef ext fill:#1e293b,stroke:#f59e0b,color:#f8fafc
+  class IDX,DASHH entry
+  class L1,GEN,SER,VEC,RAIN lvl
+  class SDK ext

@@ -1,0 +1,38 @@
+---
+title: Diagrama de casos de uso — Coordinador
+---
+flowchart LR
+  C(["👤<br/>Coordinador"])
+
+  subgraph S["Sistema: Panel del coordinador (dashboard.html)"]
+    direction TB
+    U1(["Crear sala<br/>(código + N requeridos)"])
+    U2(["Listar salas existentes"])
+    U3(["Abrir sala"])
+    U4(["Eliminar sala vacía"])
+    U4a(["Verificar que no tenga jugadores<br/>(transacción)"])
+    U5(["Volver a crear sala<br/>con el mismo código"])
+    U6(["Iniciar partida"])
+    U7(["Monitorear progreso<br/>(roster, niveles, puntajes)"])
+    U8(["Reiniciar partida<br/>(conserva jugadores)"])
+    U9(["Vaciar sala<br/>(elimina jugadores)"])
+    U10(["Confirmar acción"])
+  end
+
+  FB[("☁️ Firebase<br/>Realtime DB")]
+
+  C --- U1 & U2 & U3 & U4 & U5 & U6 & U7 & U8 & U9
+  U4 -. "«include»" .-> U4a
+  U4 -. "«include»" .-> U10
+  U8 -. "«include»" .-> U10
+  U9 -. "«include»" .-> U10
+  U5 -. "«extend»" .-> U1
+  U3 -. "«include»" .-> U7
+  U1 & U4 & U6 & U8 & U9 --- FB
+
+  classDef actor fill:#1d4ed8,stroke:#93c5fd,color:#fff
+  classDef uc fill:#1e293b,stroke:#94a3b8,color:#f8fafc
+  classDef db fill:#422006,stroke:#f59e0b,color:#fff
+  class C actor
+  class FB db
+  class U1,U2,U3,U4,U4a,U5,U6,U7,U8,U9,U10 uc

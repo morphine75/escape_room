@@ -1,0 +1,17 @@
+---
+title: Diagrama de flujo — Nivel 2 "Shape Type"
+---
+flowchart TD
+  A([Inicio]) --> B[Dibujar letra con silueta guía punteada<br/>nodo Bézier rojo desplazado al azar]
+  B --> D[/Jugador arrastra el nodo/]
+  D --> P[Calcular precisión en vivo<br/>tolerancia = 8 % del lado menor del canvas]
+  P --> U{¿Soltó el nodo?}
+  U -- No --> D
+  U -- Sí --> C{¿Precisión ≥ 85 %?}
+  C -- No --> F[Aviso: no es suficientemente preciso<br/>nodo vuelve a una posición al azar] --> D
+  C -- Sí --> OK[Animación de éxito<br/>level_2_completed = true<br/>level_2_precision] --> FIN([Espera grupal / victoria])
+
+  classDef term fill:#1d4ed8,stroke:#93c5fd,color:#fff
+  classDef dec fill:#422006,stroke:#f59e0b,color:#fff
+  class A,FIN term
+  class U,C dec

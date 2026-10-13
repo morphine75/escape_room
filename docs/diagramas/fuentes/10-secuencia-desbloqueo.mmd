@@ -1,0 +1,24 @@
+---
+title: Diagrama de secuencia — Desbloqueo automático del Nivel 2 (sin coordinador)
+---
+sequenceDiagram
+  autonumber
+  actor A as Jugador A
+  participant AA as App A (celular)
+  participant FB as Firebase RTDB
+  participant AB as App B (celular)
+  actor B as Jugador B
+
+  Note over AA,AB: Ambos suscriptos con onValue(rooms/SALA-101)
+  A->>AA: Alcanza el 📞 (Nivel 1)
+  AA->>FB: runTransaction(players): level_1_completed=true,<br/>level_2_game = juego con menos jugadores
+  FB-->>AA: snapshot (A ✔, B ✘)
+  FB-->>AB: snapshot (A ✔, B ✘)
+  AA->>A: Pantalla de espera "1 / 2 completaron"
+  B->>AB: Alcanza el 📞 (Nivel 1)
+  AB->>FB: runTransaction(players): B ✔ + juego asignado
+  FB-->>AA: snapshot (A ✔, B ✔)
+  FB-->>AB: snapshot (A ✔, B ✔)
+  Note over AA,AB: Cada app evalúa everyoneCompleted(level_1_completed) = true
+  AA->>A: Inicia su juego del Nivel 2 (p. ej. Serif)
+  AB->>B: Inicia su juego del Nivel 2 (p. ej. Shape Type)

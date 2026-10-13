@@ -1,0 +1,37 @@
+---
+title: Diagrama de flujo — Recorrido del jugador
+---
+flowchart TD
+  A([Inicio: abre index.html]) --> B{¿Hay sesión guardada<br/>en localStorage?}
+  B -- Sí --> SUB
+  B -- No --> R[/Ingresa código de sala y nombre/]
+  R --> V{¿Sala existe, no iniciada<br/>y nombre libre?}
+  V -- No --> E1[Mostrar error] --> R
+  V -- Sí --> J[Registrar jugador en Firebase<br/>+ onDisconnect + guardar sesión] --> SUB
+  SUB[Suscribirse a rooms/roomId] --> S{¿started?}
+  S -- No --> LOB[Lobby: contador de jugadores] --> S
+  S -- Sí --> L1C{¿level_1_completed?}
+  L1C -- No --> L1[Jugar Nivel 1<br/>Matrix Protocol]
+  L1 --> W1{¿Alcanzó el 📞?}
+  W1 -- "No (atrapado)" --> L1
+  W1 -- Sí --> T[completeLevel1 — transacción:<br/>level_1_completed = true<br/>+ asignar serif / vector]
+  T --> L1C
+  L1C -- Sí --> G1{¿Todos los conectados<br/>completaron el Nivel 1?}
+  G1 -- No --> WAIT1[Espera grupal X / N] --> G1
+  G1 -- Sí --> L2C{¿level_2_completed?}
+  L2C -- No --> K{level_2_game}
+  K -- serif --> SER[Jugar I Shot The Serif]
+  K -- vector --> VEC[Jugar Shape Type]
+  SER & VEC --> M[Guardar level_2_completed<br/>+ puntaje / precisión] --> L2C
+  L2C -- Sí --> G2{¿Todos los conectados<br/>completaron el Nivel 2?}
+  G2 -- No --> WAIT2[Espera grupal X / N] --> G2
+  G2 -- Sí --> VIC([🎉 Victoria grupal])
+
+  RESET>Coordinador reinicia:<br/>started = false] -.-> S
+
+  classDef term fill:#1d4ed8,stroke:#93c5fd,color:#fff
+  classDef dec fill:#422006,stroke:#f59e0b,color:#fff
+  classDef wait fill:#1e293b,stroke:#94a3b8,color:#f8fafc
+  class A,VIC term
+  class B,V,S,L1C,W1,G1,L2C,K,G2 dec
+  class LOB,WAIT1,WAIT2 wait

@@ -1,0 +1,26 @@
+---
+title: Modelo de datos — Firebase Realtime Database
+---
+erDiagram
+  ROOM ||--o{ PLAYER : "players/{playerId}"
+  ROOM {
+    string roomId PK "clave: rooms/SALA-101"
+    boolean started "false = lobby, true = partida en curso"
+    number required_players "N recomendado"
+    number current_phase "legado: solo se resetea a 1"
+    boolean level_1_unlocked "legado"
+    boolean level_2_unlocked "legado"
+    timestamp created_at "serverTimestamp"
+  }
+  PLAYER {
+    string playerId PK "player_xxxx"
+    string name "único en la sala, máx 16"
+    boolean connected "onDisconnect pone false"
+    boolean level_1_completed "lo escribe completeLevel1"
+    string level_2_game "serif | vector (autoasignado)"
+    boolean level_2_completed
+    number level_2_score "Serif: +100 por acierto"
+    number level_2_precision "Shape Type: % (>= 85)"
+    timestamp joined_at
+    timestamp last_changed
+  }

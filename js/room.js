@@ -37,6 +37,23 @@ export async function createRoom(roomId, requiredPlayers) {
   return { ok: true };
 }
 
+// Deletes a room only if it has no registered players. Runs as a transaction so
+// a student who joins at the same moment cannot be deleted along with the room.
+// The same code can be created again afterwards with createRoom().
+export async function deleteRoomIfEmpty(roomId) {
+  let hasPlayers = false;
+  const res = await runTransaction(ref(db, `rooms/${roomId}`), (room) => {
+    if (room === null) return null; // not cached yet / already gone: retried with server data
+    hasPlayers = Object.keys(room.players || {}).length > 0;
+    if (hasPlayers) return; // abort: never delete a room with players
+    return null; // delete
+  });
+  if (!res.committed || hasPlayers) {
+    return { ok: false, error: "La sala tiene jugadores. Vaciala antes de eliminarla." };
+  }
+  return { ok: true };
+}
+
 // FR-1.3: register a student in the room (with duplicate-name handling).
 export async function joinRoom(roomId, rawName) {
   const name = String(rawName || "").trim();

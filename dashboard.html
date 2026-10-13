@@ -28,11 +28,18 @@
         <button id="dash-open" class="btn secondary">Abrir existente</button>
       </div>
     </div>
+
+    <div class="card">
+      <h3>Salas existentes</h3>
+      <p class="muted">Solo se pueden eliminar las salas vacías (sin jugadores). Una sala eliminada se puede volver a crear con el mismo código.</p>
+      <ul id="dash-rooms" class="room-list"></ul>
+    </div>
   </section>
 
   <!-- Live room -->
   <section id="dash-room-view" class="screen">
     <div class="card">
+      <button id="dash-back" class="btn secondary room-back">← Salas</button>
       <div class="app-header" style="padding:0; margin-bottom:8px">
         <h2 id="dash-title">Sala</h2>
         <span id="dash-phase" class="badge">Lobby</span>
@@ -44,6 +51,7 @@
         <button id="dash-reset" class="btn secondary">🔄 Reiniciar partida</button>
         <button id="dash-clear" class="btn secondary">🧹 Vaciar sala</button>
       </div>
+      <button id="dash-delete" class="btn danger" style="margin-top:8px; width:100%">🗑️ Eliminar sala</button>
       <p class="muted" id="dash-hint" style="margin-top:8px"></p>
     </div>
 

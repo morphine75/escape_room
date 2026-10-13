@@ -33,3 +33,15 @@ export function everyoneCompleted(players, field, selfId) {
   const list = activePlayers(players, selfId);
   return list.length > 0 && list.every((p) => p[field] === true);
 }
+
+// Subscribes to the whole `rooms` node (coordinator room list). Returns the
+// unsubscribe function.
+export function subscribeRooms(onData, onError) {
+  return onValue(
+    ref(db, "rooms"),
+    (snapshot) => onData(snapshot.val() || {}),
+    (error) => {
+      if (onError) onError(error);
+    }
+  );
+}

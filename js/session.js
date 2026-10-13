@@ -45,3 +45,7 @@ export function saveHostRoom(roomId) {
 export function loadHostRoom() {
   try { return localStorage.getItem(HOST_KEY); } catch (_) { return null; }
 }
+
+export function clearHostRoom() {
+  try { localStorage.removeItem(HOST_KEY); } catch (_) { /* ignore */ }
+}

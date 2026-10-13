@@ -111,6 +111,11 @@ above the board (no pop-up notifications over the controls).
 - **🧹 Vaciar sala**: deletes every registered player and returns to the lobby,
   ready for a brand-new group.
 
+- **🗑️ Eliminar sala**: available from the room list or inside a room, only when the room
+  has **no players** (use *Vaciar sala* first). The code stays filled in, so **Crear sala**
+  re-creates it with the same code.
+
+The setup screen lists every existing room (players and status) with *Abrir* and 🗑️.
 Both reset actions ask for confirmation. When the room returns to the lobby, the
 players' open tabs go back to the lobby automatically and the levels restart cleanly
 on the next **Iniciar partida** — no page reload needed.

@@ -6,9 +6,9 @@ import { db, isConfigured } from "./firebase.js";
 import {
   ref, update, get, remove, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-import { createRoom, normalizeRoomId } from "./room.js";
-import { subscribeRoom, everyoneCompleted } from "./sync.js";
-import { saveHostRoom, loadHostRoom } from "./session.js";
+import { createRoom, deleteRoomIfEmpty, normalizeRoomId } from "./room.js";
+import { subscribeRoom, subscribeRooms, everyoneCompleted } from "./sync.js";
+import { saveHostRoom, loadHostRoom, clearHostRoom } from "./session.js";
 import { showScreen, toast, $ } from "./ui.js";
 
 const state = { roomId: null, data: null, unsub: null, transitioning: false };
@@ -18,6 +18,7 @@ function boot() {
     toast("Firebase no está configurado. Editá js/firebase-config.js", "error", 8000);
   }
   wireSetup();
+  subscribeRooms(renderRoomList, (err) => toast("Error al listar salas: " + err.message, "error"));
 
   const saved = loadHostRoom();
   if (saved) {
@@ -49,6 +50,12 @@ function wireSetup() {
     if (!roomId) { toast("Ingresá un código de sala", "warning"); return; }
     saveHostRoom(roomId);
     openRoom(roomId);
+  });
+
+  $("#dash-back").addEventListener("click", closeRoom);
+
+  $("#dash-delete").addEventListener("click", () => {
+    if (state.roomId) deleteRoom(state.roomId);
   });
 
   $("#dash-start").addEventListener("click", async () => {
@@ -90,10 +97,82 @@ function openRoom(roomId) {
   );
 }
 
+// Leaves the open room and goes back to the room list.
+function closeRoom() {
+  if (state.unsub) state.unsub();
+  state.unsub = null;
+  state.roomId = null;
+  state.data = null;
+  clearHostRoom();
+  showScreen("dash-setup");
+}
+
+// Deletes a room (only when it has no players). Its code stays in the input so
+// it can be created again right away with "Crear sala".
+async function deleteRoom(roomId) {
+  const ok = window.confirm(
+    `¿Eliminar la sala ${roomId}?\n\nSolo se puede eliminar si no tiene jugadores. Después podés volver a crearla con el mismo código.`
+  );
+  if (!ok) return;
+  // Stop listening first so the open view does not report "room not found".
+  const wasOpen = state.roomId === roomId;
+  if (wasOpen && state.unsub) { state.unsub(); state.unsub = null; }
+  try {
+    const res = await deleteRoomIfEmpty(roomId);
+    if (!res.ok) {
+      toast(res.error, "error");
+      if (wasOpen) openRoom(roomId);
+      return;
+    }
+    if (wasOpen) closeRoom();
+    if (loadHostRoom() === roomId) clearHostRoom();
+    $("#dash-room").value = roomId;
+    toast(`Sala ${roomId} eliminada. Podés volver a crearla con "Crear sala".`, "success");
+  } catch (err) {
+    toast("Error al eliminar: " + err.message, "error");
+    if (wasOpen) openRoom(roomId);
+  }
+}
+
+function renderRoomList(rooms) {
+  const ul = $("#dash-rooms");
+  ul.innerHTML = "";
+  const ids = Object.keys(rooms).sort();
+  if (!ids.length) {
+    const li = document.createElement("li");
+    li.className = "room-empty";
+    li.textContent = "No hay salas creadas.";
+    ul.appendChild(li);
+    return;
+  }
+  ids.forEach((id) => {
+    const room = rooms[id] || {};
+    const count = Object.keys(room.players || {}).length;
+    const li = document.createElement("li");
+    li.className = "room-item";
+    li.innerHTML = `
+      <div class="room-info">
+        <span class="room-code">${escapeHtml(id)}</span>
+        <span class="muted">${count} jugador${count === 1 ? "" : "es"} · ${phaseLabel(room)}</span>
+      </div>
+      <div class="row">
+        <button class="btn secondary" data-act="open">Abrir</button>
+        <button class="btn danger" data-act="delete" ${count ? "disabled" : ""}
+          title="${count ? "Vaciá la sala antes de eliminarla" : "Eliminar sala"}">🗑️</button>
+      </div>`;
+    li.querySelector('[data-act="open"]').addEventListener("click", () => {
+      saveHostRoom(id);
+      openRoom(id);
+    });
+    li.querySelector('[data-act="delete"]').addEventListener("click", () => deleteRoom(id));
+    ul.appendChild(li);
+  });
+}
+
 function onData(data) {
   if (!data) {
-    toast("Esa sala no existe", "error");
-    showScreen("dash-setup");
+    toast("Esa sala no existe. Podés crearla con ese código.", "error");
+    closeRoom();
     return;
   }
   state.data = data;
@@ -134,6 +213,10 @@ function render(data) {
   $("#dash-hint").textContent = data.started
     ? "Cada nivel se desbloquea solo cuando todos los jugadores conectados completan el anterior."
     : `Se necesitan jugadores. Recomendado: ${required}.`;
+
+  const deleteBtn = $("#dash-delete");
+  deleteBtn.disabled = total > 0;
+  deleteBtn.title = total > 0 ? "Vaciá la sala antes de eliminarla" : "";
 
   renderRoster(list);
 }

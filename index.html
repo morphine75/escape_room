@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>Hack the Institute: Mission Zero</title>
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/level1.css" />
+  <link rel="stylesheet" href="css/level2.css" />
+</head>
+<body>
+  <!-- Matrix "digital rain" ambience (visible only on the Level 1 screen). -->
+  <canvas id="digital-rain" aria-hidden="true"></canvas>
+
+  <header class="app-header">
+    <span id="hdr-left">MATRIX OS</span>
+    <span id="hdr-right"></span>
+  </header>
+
+  <!-- Screen 1: Registration -->
+  <section id="screen-register" class="screen active">
+    <div class="card">
+      <h1>Misión Cero</h1>
+      <p class="muted">Ingresá a la sala de tu grupo para empezar.</p>
+      <label for="reg-room">Código de sala</label>
+      <input id="reg-room" class="input" placeholder="SALA-101" autocomplete="off" autocapitalize="characters" />
+      <label for="reg-name">Tu nombre o nick</label>
+      <input id="reg-name" class="input" placeholder="Neo_404" maxlength="16" autocomplete="off" />
+      <button id="reg-join" class="btn">Entrar</button>
+    </div>
+    <a class="muted center" href="dashboard.html">Soy coordinador/a →</a>
+  </section>
+
+  <!-- Screen 2: Waiting lobby -->
+  <section id="screen-lobby" class="screen">
+    <div class="card center">
+      <h2 id="lobby-room">Sala</h2>
+      <p><strong id="lobby-count">0 / 0</strong></p>
+      <div class="progress"><span id="lobby-bar"></span></div>
+      <p class="muted" style="margin-top:12px">Esperando que el coordinador inicie la partida…</p>
+    </div>
+    <div class="card">
+      <h3>Hackers unidos</h3>
+      <ul id="lobby-players"></ul>
+    </div>
+  </section>
+
+  <!-- Screen 3: Level 1 — Matrix Protocol -->
+  <section id="screen-level1" class="screen">
+    <div class="l1-header">
+      <span>😎 MATRIX OS v1.0</span>
+      <span id="l1-ready"></span>
+    </div>
+
+    <div id="l1-grid" class="l1-grid"></div>
+
+    <div class="l1-terminal">
+      <div class="l1-terminal-title">TERMINAL DE SCRIPT:</div>
+      <ul id="l1-terminal"></ul>
+    </div>
+
+    <div class="l1-controls">
+      <div class="l1-steps" id="l1-steps">
+        <span>Pasos:</span>
+        <button class="chip active" data-step="1">1</button>
+        <button class="chip" data-step="2">2</button>
+        <button class="chip" data-step="3">3</button>
+      </div>
+
+      <div class="l1-dpad" id="l1-dpad">
+        <button data-move="up" aria-label="Subir">⬆️</button>
+        <button data-move="down" aria-label="Bajar">⬇️</button>
+        <button data-move="left" aria-label="Izquierda">⬅️</button>
+        <button data-move="right" aria-label="Derecha">➡️</button>
+      </div>
+
+      <div class="l1-actions" id="l1-actions">
+        <button data-action="bypass">⚔️ BYPASS</button>
+        <button data-action="decrypt">🗝️ DECRYPT</button>
+      </div>
+
+      <button id="l1-run" class="btn l1-run">⚡ EJECUTAR EXPLOIT</button>
+    </div>
+  </section>
+
+  <!-- Screen 4 / 7: Individual completion & group wait -->
+  <section id="screen-wait" class="screen">
+    <div class="card center">
+      <h2 id="wait-title">Esperando al resto del equipo…</h2>
+      <p><strong id="wait-count"></strong></p>
+      <div class="progress"><span id="wait-bar"></span></div>
+      <p class="muted" id="wait-hint" style="margin-top:12px"></p>
+    </div>
+  </section>
+
+  <!-- Screen 6a: Level 2 — I Shot The Serif -->
+  <section id="screen-serif" class="screen">
+    <div class="l2-top">
+      <span>⏱️ <span id="serif-time">30</span>s</span>
+      <span>🎯 <span id="serif-score">0</span></span>
+    </div>
+    <div id="serif-grid" class="serif-grid"></div>
+    <p class="center muted">Tocá SOLO las tipografías CON SERIFAS</p>
+  </section>
+
+  <!-- Screen 6b: Level 2 — Shape Type -->
+  <section id="screen-vector" class="screen">
+    <div class="l2-top">
+      <span>✏️ Vector Adjust</span>
+      <span>Precisión: <span id="vector-precision">0</span>%</span>
+    </div>
+    <canvas id="vector-canvas"></canvas>
+    <p class="center muted">Arrastrá el nodo rojo para corregir la curva. Precisión requerida: 85%</p>
+  </section>
+
+  <!-- Screen 8: Victory -->
+  <section id="screen-victory" class="screen">
+    <div class="card center">
+      <h1>🎉 Sistema infiltrado</h1>
+      <p>El equipo completó la Misión Cero.</p>
+      <p class="muted">Sigan las indicaciones del coordinador para la próxima estación.</p>
+    </div>
+  </section>
+
+  <!-- Gate / command modal -->
+  <div id="l1-modal" class="modal hidden">
+    <div class="modal-card">
+      <h3 id="l1-modal-title">Puerta cifrada</h3>
+      <p id="l1-modal-q"></p>
+      <input id="l1-modal-input" class="input" inputmode="numeric" autocomplete="off" />
+      <div class="row">
+        <button id="l1-modal-cancel" class="btn secondary">Cancelar</button>
+        <button id="l1-modal-ok" class="btn">Validar</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

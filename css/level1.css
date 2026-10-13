@@ -1,0 +1,159 @@
+/* Level 1 — Matrix Protocol theme (neon green on black). */
+
+body[data-screen="screen-level1"] { background: #000; }
+body[data-screen="screen-level1"] .app-header { color: #00ff66; }
+
+#screen-level1 {
+  color: #00ff66;
+  font-family: "Courier New", Consolas, "Fira Code", monospace;
+  gap: 10px;
+}
+
+/* --- Digital rain ambience -------------------------------------------------- */
+/* Fixed canvas behind the UI, shown only on the Level 1 screen. The effect
+   itself lives in js/digitalrain.js; kept at low opacity so text stays legible. */
+#digital-rain {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  display: none;
+  pointer-events: none;
+  opacity: 0.5;
+}
+body[data-screen="screen-level1"] #digital-rain { display: block; }
+
+/* Keep the UI stacked above the rain. */
+body[data-screen="screen-level1"] #screen-level1 {
+  position: relative;
+  z-index: 1;
+}
+body[data-screen="screen-level1"] .app-header {
+  position: relative;
+  z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* A single static frame is drawn; keep it even subtler. */
+  #digital-rain { opacity: 0.35; }
+}
+
+.l1-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: #00ff66;
+  text-shadow: 0 0 6px rgba(0, 255, 102, 0.5);
+}
+
+/* --- Grid ------------------------------------------------------------------ */
+
+.l1-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.l1-cell {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: #0d1117;
+  border: 1px solid #17361f;
+  border-radius: 8px;
+  font-size: 1.05rem;
+  color: #00ff41;
+}
+.l1-cell.binary { color: #1f6b3a; font-size: 0.8rem; }
+.l1-cell.type-wall { background: #14181d; }
+.l1-cell.type-agent { border-color: #ffb700; }
+.l1-cell.type-gate { border-color: #ff0055; }
+.l1-cell.type-booth { border-color: #00ff66; box-shadow: 0 0 10px rgba(0, 255, 102, 0.4); }
+.l1-cell.hero { font-size: 1.4rem; }
+
+.l1-hp {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  font-size: 0.65rem;
+  color: #ffb700;
+}
+
+/* --- Script terminal ------------------------------------------------------- */
+
+.l1-terminal {
+  background: #0d1117;
+  border: 1px solid #17361f;
+  border-radius: 8px;
+  padding: 10px;
+  min-height: 96px;
+  flex-shrink: 0;
+}
+.l1-terminal-title { font-size: 0.75rem; color: #1f9e57; margin-bottom: 6px; }
+#l1-terminal { list-style: none; padding: 0; margin: 0; }
+.l1-cmd {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  color: #00ff66;
+}
+.l1-cmd.active .l1-cmd-text { color: #ffb700; }
+.l1-cmd.fail .l1-cmd-text { color: #ff0055; text-shadow: 0 0 6px rgba(255, 0, 85, 0.6); }
+.l1-empty { color: #1f6b3a; }
+.l1-del {
+  background: transparent;
+  border: none;
+  font-size: 1rem;
+  min-width: 32px;
+  min-height: 32px;
+  line-height: 1;
+}
+
+/* --- Controls -------------------------------------------------------------- */
+
+.l1-controls { display: flex; flex-direction: column; gap: 10px; }
+.l1-steps { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; }
+.l1-steps .chip { min-width: 44px; min-height: 44px; }
+
+.l1-dpad {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.l1-dpad button {
+  min-height: 52px;
+  background: #0d1117;
+  border: 1px solid #00ff66;
+  border-radius: 10px;
+  color: #00ff66;
+  font-size: 1.2rem;
+}
+.l1-dpad button:active { background: #00ff66; color: #000; }
+
+.l1-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.l1-actions button {
+  min-height: 52px;
+  background: #0d1117;
+  border: 1px solid #ffb700;
+  border-radius: 10px;
+  color: #ffb700;
+  font-weight: 700;
+}
+.l1-actions button:active { background: #ffb700; color: #000; }
+
+.l1-run {
+  min-height: 56px;
+  width: 100%;
+  background: #00ff66;
+  color: #000;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  box-shadow: 0 0 16px rgba(0, 255, 102, 0.5);
+}
+.l1-run:disabled { box-shadow: none; }

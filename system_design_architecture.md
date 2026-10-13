@@ -13,7 +13,7 @@
 |-------|------|------|
 | 1 | Matrix Protocol (The Hacker Escape) | Algorithmic logic / maze |
 | 2 | Typography & Vector Design (two mini-games in parallel) | Typographic agility / curve adjustment |
-| 3 | To be defined | — |
+| 3 | Not implemented — the game concludes after Level 2 | — |
 
 ---
 
@@ -38,6 +38,7 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
   "rooms": {
     "ROOM-101": {
       "current_phase": 1,
+      "started": false,
       "required_players": 10,
       "level_1_unlocked": true,
       "level_2_unlocked": false,
@@ -45,6 +46,7 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
       "players": {
         "player_abc123": {
           "name": "Neo_404",
+          "connected": true,
           "level_1_completed": true,
           "level_2_game": "serif",
           "level_2_completed": false,
@@ -53,6 +55,7 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
         },
         "player_def456": {
           "name": "Trinity_7",
+          "connected": true,
           "level_1_completed": true,
           "level_2_game": "vector",
           "level_2_completed": false,
@@ -70,14 +73,18 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
 | Field | Description |
 |-------|-------------|
 | `current_phase` | Global room phase (1, 2, 3…). Controls which screen everyone sees. |
+| `started` | `false` while the room is in the lobby; set to `true` when the coordinator starts the round. Distinguishes the lobby from Level 1. |
 | `required_players` | Target number of players needed to start and advance. |
 | `level_1_completed` / `level_2_completed` | Individual progress per level. |
 | `level_2_game` | Assigned mini-game: `"serif"` ("I Shot The Serif") or `"vector"` ("Shape Type"). |
 | `level_2_score` | Score accumulated in "I Shot The Serif" (+100 per correct serif). |
 | `level_2_precision` | Precision achieved in "Shape Type" (≥ 85% required to pass). |
+| `connected` | Presence flag maintained via `onDisconnect()`; `false` when the device drops offline. |
 | `last_changed` | Timestamp (epoch) of the player's last update. |
 
 > **Note:** Use a single timestamp format everywhere (epoch via `ServerValue.TIMESTAMP` is recommended).
+
+> **Resolved (presence / disconnection):** each client registers an `onDisconnect()` handler that flips `connected` to `false`, and stores its `roomId`/`playerId` in `localStorage` so a browser refresh resumes the same session.
 
 ---
 
@@ -107,8 +114,10 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
 [ Screen 7: Individual Completion / Group Wait ] <─┘
          │
          ▼ (Listener detects ALL players level_2_completed = true)
-[ Screen 8: Phase 3 Unlocked / Next Challenge ]
+[ Screen 8: Group Victory / Game Complete ]
 ```
+
+> **Reset / replay:** the coordinator can return the room to the lobby at any time. **Restart round** keeps the registered players and clears their progress; **Wipe room** removes all players. Both take effect in real time on every player's device (see section 8.4).
 
 ---
 
@@ -123,34 +132,42 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
   * Alerts / errors: `#ff0055` (neon red) / `#ffb700` (amber).
   * Secondary text: `#a3b8cc` (cool gray).
 * **Typography:** Monospace (`Courier New`, `Consolas`, or `Fira Code`).
-* **Optional ambience:** "Digital rain" canvas background at low opacity so it doesn't hurt readability.
+* **Ambience — animated "digital rain" (implemented):** an animated canvas (`<canvas id="digital-rain">`, logic in `js/digitalrain.js`) falls behind the Level 1 screen. Columns of katakana / Latin / binary glyphs in Matrix green descend, each led by a bright, glowing **"shining" head glyph** with a fading trail. It is drawn at ~50 % opacity so the terminal text stays legible, runs only while the Level 1 screen is visible **and** the tab is in the foreground (paused and cleared otherwise), and falls back to a single static frame when the user prefers reduced motion.
 
 ### 5.2. Mobile Layout (Portrait / 100vh)
 
 ```text
+
 +------------------------------------+
-| 🕵🏻 MATRIX OS | 👤 Neo (3/10 Ready) |  <-- Sticky Header (Room info)
+| 😎 MATRIX OS v1.0 | 👤 Neo_404 (4/10 Ready) | <-- Sticky Header
 +------------------------------------+
-|                                    |
-|   [😎]  [01]  [🧱]  [10]          |
-|   [🧱]  [🕵🏻]  [00]  [🚪]          |  <-- ZONE 1: Simulation Matrix
-|   [10]  [01]  [🧱]  [📞]          |      (Canvas 2D / CSS Grid)
-|                                    |
+|          Neo_404                   |
+|      HACKERS UNIDOS: 4 de 10       |
 +------------------------------------+
-| SCRIPT TERMINAL:                   |
-| > bypassFirewall()  [❌]           |  <-- ZONE 2: Command blocks
-| > moveRight(2)      [❌]           |      assembled by the student
+|   [😎]  [0 1]  [🕶️]  [0 1]  [🕶️]   |
+|   [1 1]  [1 1]  [1 1]  [1 1]  [1 1] | <-- ZONE 1: 2D Matrix Grid Canvas
+|   [0 1]  [🕶️]  [🕶️]  [🔴]  [REVELAR]|     (Digital Rain + Binary Cells +
+|   [1 1]  [1 1]  [1 1]  [   ]  AGENTES|     Hero 😎 / Agents 🕶️ & Red Pills 🔴)
+|   [🕶️]  [0 1]  [0 1]  [0 1]  [📞]   |
+|   [1 1]  [1 1]  [1 1]  [1 1]  [1 1] |
 +------------------------------------+
-| [⬆️ UP] [⬇️ DOWN] [⬅️ LEFT] [➡️ RIGHT]|  <-- TOUCH CONTROL PANEL
-| [⚔️ BYPASS] [🗝️ DECRYPT]            |      Command injection
+| TERMINAL DE SCRIPT:                |
+| > bypassFirewall(0101) [❌]        | <-- ZONE 2: Command Sequence
+| > moverDerecha(2)      [❌]        |     (Interactive Script List)
+| > Add Comando...                   |
++------------------------------------+
+| BOTONERA TOUCH (HACKER)            |
+| [⬇️ BAJAR] [⬆️ SUBIR] [⬅️ IZQ] [➡️ DER] | <-- ZONE 3: Directional Controls
+| [⚔️ BYPASS]  [🗝️ DESCRYPT]          | <-- Action & Decryption Trigger
 |------------------------------------|
-|      [ ⚡ RUN EXPLOIT ]            |  <-- Main action button
+|      [ [ ⚡ EJECUTAR EXPLOIT ] ]   | <-- Main Execution Action Button
 +------------------------------------+
+
 ```
 
 ### 5.3. Level 1 Game Mechanics
 
-1. **Matrix components (procedural 5×5 or 6×6 maze):**
+1. **Matrix components (procedural 5×5 maze — `GRID_SIZE = 5`, configurable):**
    * **Hacker (`😎`):** Starting position `(0, 0)`.
    * **Data cells (`01`, `10`, `00`):** Walkable tiles (binary decoration).
    * **Walls / static firewalls (`🧱`):** Impassable obstacles.
@@ -175,6 +192,8 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
    * Each client generates its own grid locally with random walls, **guaranteeing at least one valid path** (e.g., carve a path first, then place walls only outside it).
    * Every student gets a unique puzzle and server load stays at zero.
 
+> **Resolved (grid size):** the maze is **5×5**, exposed as a configurable `GRID_SIZE` constant. `REQUIREMENTS.md` (FR-2.1) specifies 4×4; the discrepancy is intentional and the design prevails.
+
 ### 5.4. Grid Generation Example (pseudocode)
 
 ```javascript
@@ -198,6 +217,15 @@ function generateGrid(size = 5) {
   return grid;
 }
 ```
+
+### 5.5. UI Design System Guidelines
+  * **Color Palette:**
+    * Background: Pure Black (`#000000`) & Dark Slate (`#0d1117`)
+    * Primary Accent: Matrix Green (`#00ff66` / `#00ff41`)
+    * Alerts / Errors: Neon Red (`#ff0055`)
+    * Interactive Items / Decisions: Neon Red Pill (`#ff2e4c`) & Warning Amber (`#ffb700`)
+  * **Typography:** Monospace (`Courier New`, `Consolas`, `Fira Code`).
+  * **Touch Targets:** Minimum $44 \times 44\text{px}$ touch targets across all mobile controls.
 
 ---
 
@@ -233,14 +261,14 @@ onValue(roomRef, (snapshot) => {
     transitionToLevel2();
   }
 
-  // Trigger: Level 2 → Phase 3 (ALL players complete their assigned game)
+  // Trigger: Level 2 → Game Complete (ALL players complete their assigned game)
   if (data.current_phase === 2 && totalJoined >= required && level2Completed >= required) {
-    transitionToPhase3();
+    showGroupVictory(); // The game ends here — there is no Phase 3.
   }
 });
 ```
 
-> **Recommendation:** Only one client (or the coordinator dashboard) should write `current_phase` to avoid duplicate writes. All other clients just react to the change.
+> **Resolved:** the **coordinator dashboard is the sole authority** allowed to write `current_phase`, and it does so inside a `transaction()` to avoid race conditions. All other clients are read-only and simply react to the change.
 
 ### 6.2. Marking Individual Progress
 
@@ -265,6 +293,7 @@ function completeLevel1() {
 - When Level 2 unlocks, the coordinator defines the total player count ($N$).
 - The first half ($\lceil N/2 \rceil$) is assigned `level_2_game: "serif"` (I Shot The Serif).
 - The second half ($\lfloor N/2 \rfloor$) is assigned `level_2_game: "vector"` (Shape Type).
+- **Resolved:** the coordinator performs the assignment inside a single `transaction()` over the `playerId` list sorted deterministically, so every player is assigned exactly once and there are no conflicting writes.
 - Firebase updates each player's record with their assigned game type.
 - **Example:** 10 players → 5 serif, 5 vector. 11 players → 6 serif, 5 vector.
 
@@ -319,7 +348,7 @@ Eliminate all letters displayed with **serifs** before the 30-second timer expir
    - If all serifs are eliminated: `level_2_completed: true` and the score is saved in `level_2_score`.
    - The player moves to the waiting screen to watch group progress.
 
-> **To define:** The original design doesn't specify what happens if the timer hits zero without completion. Suggestion: automatic retry (new grid) so no player blocks the group.
+> **Resolved:** if the timer hits zero without completion, the game **automatically restarts with a new grid**. No penalty is applied and the player is never blocked, so the rest of the group is not held up.
 
 #### 7.2.4. Timing & Scoring
 - **Timer:** 30 seconds.
@@ -378,7 +407,8 @@ Reconstruct the original shape of a letter/logo by dragging deformed **Bézier c
 
 ```javascript
 // Pseudocode for precision calculation
-function calculatePrecision(currentNodePos, targetNodePos, tolerance = 20) {
+// `tolerance` is scaled to the canvas: ~8% of its shorter side (≈ 40–60 px on mobile)
+function calculatePrecision(currentNodePos, targetNodePos, tolerance) {
   const distance = Math.hypot(
     currentNodePos.x - targetNodePos.x,
     currentNodePos.y - targetNodePos.y
@@ -388,7 +418,7 @@ function calculatePrecision(currentNodePos, targetNodePos, tolerance = 20) {
 }
 ```
 
-> **Note:** With `tolerance = 20`, 85% means landing within ~3 px of the target, which is very demanding on a touchscreen. Consider raising the tolerance (e.g., 40–60 px) or scaling it to the canvas size.
+> **Resolved:** `tolerance = 20` is rejected as unplayable on touchscreens (85% would require landing within ~3 px). The tolerance is **scaled to the canvas**, using a success radius of ≈ 8% of the canvas' shorter side (≈ 40–60 px on mobile).
 
 ---
 
@@ -398,7 +428,7 @@ function calculatePrecision(currentNodePos, targetNodePos, tolerance = 20) {
 
 * **Colors:** see section 5.1.
 * **Typography:** Monospace.
-* **Effects:** Digital rain background, terminal-style text, blinking `_` cursor, neon-green glow on active elements.
+* **Effects:** Animated **digital rain** canvas background (see sections 5.1 and 9 #10), terminal-style text, blinking `_` cursor, neon-green glow on active elements.
 
 ### 8.2. Level 2 and the rest of the app
 
@@ -423,3 +453,34 @@ function calculatePrecision(currentNodePos, targetNodePos, tolerance = 20) {
   * Letter explosion on correct taps (Game A).
   * Node "snap-to-target" animation when precision ≥ 85% (Game B).
   * Success glow/pulse when each objective is met.
+
+### 8.4. Coordinator Dashboard
+
+Big-screen panel used by the facilitator. It is the **single writer** of `current_phase` (section 6.1) and the only place with room-level controls.
+
+* **Live view:** room code, current phase, joined / required players, a per-player roster (Level 1 ✅/⏳, Level 2 ✅/⏳, assigned mini-game, score/precision) and a progress bar for the active level.
+* **Start round:** writes `started: true`, unlocking Level 1.
+* **Force phase advance:** safety hatch that moves the room to the next phase even if a disconnected player never finished, so a live session cannot deadlock. Still performed inside a `transaction()`.
+* **Restart round:** clears every player's progress (`level_1_completed`, `level_2_completed`, assigned mini-game, score/precision) and returns the room to the lobby (`current_phase: 1`, `started: false`), **keeping the registered players** so the same group can replay.
+* **Wipe room:** deletes all players and returns to the lobby, ready for a brand-new group.
+
+Both reset actions require confirmation. When the room returns to the lobby, the players' open tabs follow automatically and each level **initialises fresh** on the next start: the level controllers are *restarted*, not re-created, so there are no duplicate event handlers and no page reload is needed.
+
+---
+
+## ✅ 9. Resolved Design Decisions
+
+Consolidated record of the design points that were previously left open, together with their resolutions.
+
+| # | Topic | Situation | Resolution |
+|---|-------|-----------|------------|
+| 1 | **Grid size** | `REQUIREMENTS.md` says 4×4 (FR-2.1); the design says 5×5 / 6×6 | Use **5×5**, exposed as a configurable `GRID_SIZE` constant. The discrepancy with FR-2.1 is documented here; the design prevails. |
+| 2 | **"I Shot The Serif" timeout** | Not specified | On timeout, **automatically retry with a new grid**. No penalty; the player never blocks the group. |
+| 3 | **"Shape Type" tolerance** | `tolerance = 20 px` → 85% ≈ 3 px (unplayable on touch) | Scale the tolerance to the canvas: success radius ≈ **8% of the shorter side** (≈ 40–60 px on mobile). |
+| 4 | **Who writes `current_phase`** | Only "recommended" a single writer | The **coordinator dashboard is the sole authority** and writes it inside a `transaction()`. All other clients only react. |
+| 5 | **Level 2 assignment** | "The coordinator defines N on unlock" | The coordinator assigns `serif` / `vector` inside a single `transaction()` over a deterministically sorted `playerId` list (first half → `serif`). |
+| 6 | **Phase 3** | Undefined | **Not implemented.** The game **ends after Level 2**; completing it shows the group-victory screen. |
+| 7 | **Presence / disconnection** | NFR-4 | `onDisconnect()` marks players as disconnected; `localStorage` restores `roomId`/`playerId` so a refresh resumes the session. |
+| 8 | **Reset / replay between groups** | Not defined; a finished room could not be reused for the next group | The dashboard offers **Restart round** (reset progress, keep players) and **Wipe room** (remove players), both returning to the lobby. Player progress and `current_phase` are reset transactionally; players' tabs return to the lobby and levels reinitialise without a page reload. |
+| 9 | **Live-session deadlock** | A disconnected player can never complete a level, which would block the automatic phase advance | The dashboard exposes a **Force phase advance** action (transactional) so the facilitator can unblock the room. |
+| 10 | **Level 1 ambience** | A Matrix-styled background was wanted, but a static page feels flat | An animated **"digital rain"** canvas (`js/digitalrain.js`) renders falling katakana / Latin / binary glyphs with a shining head glyph and fading trail behind the Level 1 screen. It runs only while the screen is visible and the tab is foregrounded, sits at ~50 % opacity for readability, and shows a single static frame under `prefers-reduced-motion`. |

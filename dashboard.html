@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>Mission Zero · Panel del coordinador</title>
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+</head>
+<body>
+  <header class="app-header">
+    <span>🎛️ PANEL DE CONTROL</span>
+    <a href="index.html">Vista jugador →</a>
+  </header>
+
+  <!-- Setup -->
+  <section id="dash-setup" class="screen active">
+    <div class="card">
+      <h1>Coordinador</h1>
+      <p class="muted">Creá una sala nueva o abrí una existente.</p>
+      <label for="dash-room">Código de sala</label>
+      <input id="dash-room" class="input" placeholder="SALA-101" autocomplete="off" autocapitalize="characters" />
+      <label for="dash-required">Jugadores requeridos (N)</label>
+      <input id="dash-required" class="input" type="number" min="2" max="40" value="10" />
+      <div class="row">
+        <button id="dash-create" class="btn">Crear sala</button>
+        <button id="dash-open" class="btn secondary">Abrir existente</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Live room -->
+  <section id="dash-room-view" class="screen">
+    <div class="card">
+      <div class="app-header" style="padding:0; margin-bottom:8px">
+        <h2 id="dash-title">Sala</h2>
+        <span id="dash-phase" class="badge">Lobby</span>
+      </div>
+      <div class="progress"><span id="dash-bar"></span></div>
+      <p class="muted" id="dash-progress" style="margin-top:8px"></p>
+      <button id="dash-start" class="btn">▶️ Iniciar partida</button>
+      <button id="dash-force" class="btn secondary" style="margin-top:8px">⏭️ Forzar avance de fase</button>
+      <div class="row" style="margin-top:8px">
+        <button id="dash-reset" class="btn secondary">🔄 Reiniciar partida</button>
+        <button id="dash-clear" class="btn secondary">🧹 Vaciar sala</button>
+      </div>
+      <p class="muted" id="dash-hint" style="margin-top:8px"></p>
+    </div>
+
+    <div class="card">
+      <h3>Jugadores (<span id="dash-joined">0</span> / <span id="dash-required-view">0</span>)</h3>
+      <div class="roster-wrap">
+        <table class="roster">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Nombre</th>
+              <th>L1</th>
+              <th>L2</th>
+              <th>Juego</th>
+              <th>Detalle</th>
+            </tr>
+          </thead>
+          <tbody id="dash-roster"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <script type="module" src="js/dashboard.js"></script>
+</body>
+</html>

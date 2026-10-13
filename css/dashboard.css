@@ -1,0 +1,5 @@
+/* Coordinator dashboard. */
+#dash-room-view { gap: 14px; }
+#dash-room-view .card { overflow-x: auto; }
+.roster-wrap { overflow-x: auto; }
+#dash-start { width: 100%; margin-top: 8px; }

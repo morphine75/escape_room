@@ -1,0 +1,61 @@
+/* Level 2 — typography & vector games (navy/blue theme). */
+
+body[data-screen="screen-serif"] .app-header,
+body[data-screen="screen-vector"] .app-header { color: var(--muted); }
+
+#screen-serif,
+#screen-vector { gap: 12px; }
+
+.l2-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+/* --- Game A: I Shot The Serif --------------------------------------------- */
+
+.serif-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.serif-cell {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: #fff;
+  font-size: clamp(1.8rem, 12vw, 3rem);
+  transition: transform 0.12s, background 0.2s, opacity 0.2s;
+  touch-action: manipulation;
+}
+.serif-cell:active { transform: scale(0.96); }
+.serif-cell.hit {
+  background: rgba(34, 197, 94, 0.25);
+  border-color: var(--success);
+  opacity: 0.35;
+  transform: scale(0.9);
+}
+.serif-cell.shake { animation: shake 0.4s; border-color: var(--error); }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+/* --- Game B: Shape Type ---------------------------------------------------- */
+
+#vector-canvas {
+  width: 100%;
+  flex: 1;
+  min-height: 320px;
+  background: #0b1220;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  touch-action: none;
+}

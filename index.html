@@ -46,41 +46,44 @@
     </div>
   </section>
 
-  <!-- Screen 3: Level 1 — Matrix Protocol -->
+  <!-- Screen 3: Level 1 — Matrix Protocol (real-time arcade) -->
   <section id="screen-level1" class="screen">
     <div class="l1-header">
       <span>😎 MATRIX OS v1.0</span>
       <span id="l1-ready"></span>
     </div>
 
-    <div id="l1-grid" class="l1-grid"></div>
+    <div class="l1-hud">
+      <span>🎯 Intento <span id="l1-attempts">1</span></span>
+      <span id="l1-status" class="l1-status">Llegá al 📞 y esquivá a los 🕵🏻</span>
+    </div>
 
-    <div class="l1-terminal">
-      <div class="l1-terminal-title">TERMINAL DE SCRIPT:</div>
-      <ul id="l1-terminal"></ul>
+    <div id="l1-board" class="l1-board" style="--n: 7">
+      <div id="l1-maze" class="l1-maze"></div>
+      <div id="l1-tokens" class="l1-tokens"></div>
     </div>
 
     <div class="l1-controls">
-      <div class="l1-steps" id="l1-steps">
-        <span>Pasos:</span>
-        <button class="chip active" data-step="1">1</button>
-        <button class="chip" data-step="2">2</button>
-        <button class="chip" data-step="3">3</button>
-      </div>
-
       <div class="l1-dpad" id="l1-dpad">
-        <button data-move="up" aria-label="Subir">⬆️</button>
-        <button data-move="down" aria-label="Bajar">⬇️</button>
-        <button data-move="left" aria-label="Izquierda">⬅️</button>
-        <button data-move="right" aria-label="Derecha">➡️</button>
+        <button class="l1-dir up" data-move="up" aria-label="Subir">⬆️</button>
+        <button class="l1-dir left" data-move="left" aria-label="Izquierda">⬅️</button>
+        <button class="l1-dir right" data-move="right" aria-label="Derecha">➡️</button>
+        <button class="l1-dir down" data-move="down" aria-label="Bajar">⬇️</button>
       </div>
 
       <div class="l1-actions" id="l1-actions">
-        <button data-action="bypass">⚔️ BYPASS</button>
-        <button data-action="decrypt">🗝️ DECRYPT</button>
+        <button id="l1-fire" class="l1-act fire" data-action="fire">
+          🔫 DISPARAR <span class="l1-use" id="l1-ammo">3</span>
+        </button>
+        <button id="l1-bypass" class="l1-act bypass" data-action="bypass">
+          ⚔️ BYPASS <span class="l1-use" id="l1-bypass-n">3</span>
+        </button>
+        <button id="l1-encrypt" class="l1-act encrypt" data-action="encrypt">
+          🧊 ENCRYPT <span class="l1-use" id="l1-encrypt-n">1</span>
+        </button>
       </div>
 
-      <button id="l1-run" class="btn l1-run">⚡ EJECUTAR EXPLOIT</button>
+      <p class="l1-help">Flechas/WASD: mover · ESPACIO: disparar · B: bypass · E: encrypt</p>
     </div>
   </section>
 
@@ -122,19 +125,6 @@
       <p class="muted">Sigan las indicaciones del coordinador para la próxima estación.</p>
     </div>
   </section>
-
-  <!-- Gate / command modal -->
-  <div id="l1-modal" class="modal hidden">
-    <div class="modal-card">
-      <h3 id="l1-modal-title">Puerta cifrada</h3>
-      <p id="l1-modal-q"></p>
-      <input id="l1-modal-input" class="input" inputmode="numeric" autocomplete="off" />
-      <div class="row">
-        <button id="l1-modal-cancel" class="btn secondary">Cancelar</button>
-        <button id="l1-modal-ok" class="btn">Validar</button>
-      </div>
-    </div>
-  </div>
 
   <script type="module" src="js/app.js"></script>
 </body>

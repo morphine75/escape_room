@@ -1,314 +1,548 @@
-// Level 1 — "Matrix Protocol": grid rendering, command building, execution engine.
-import { generateLevel1, GRID_SIZE } from "./generator.js";
-import { $, $$, sleep, vibrate, toast } from "../../ui.js";
+// Level 1 — "Matrix Protocol" (real-time arcade / Pac-Man style).
+//
+// The hero (😎) moves around a 7x7 maze with the arrow keys / on-screen D-pad and
+// must intercept the phone booth (📞), which also wanders. Two agents (🕵🏻) chase
+// the hero:
+//   - DISPARAR (Ammo) fires a projectile in the facing direction; hitting an
+//     agent freezes it for a few seconds.
+//   - BYPASS rebuilds the maze live (limited uses + cooldown).
+//   - ENCRYPT freezes the nearest active agent (single use per attempt).
+// If an agent catches the hero the attempt restarts with a fresh maze, until the
+// hero reaches the phone, which marks level_1_completed in Firebase.
+import {
+  GRID_SIZE,
+  generateLevel1,
+  regenerateWalls,
+  openCells,
+  bfsDistances
+} from "./generator.js";
+import { $, vibrate, toast } from "../../ui.js";
+
+// --- Tuning ------------------------------------------------------------------
+const HERO_MS = 150; // time per cell for the hero
+const AGENT_MS = 300; // agents are slightly slower than the hero
+const PHONE_MS = 420; // phone wander interval
+const PROJ_MS = 70; // projectile step interval
+const PHONE_MOVE_CHANCE = 0.6; // phone sometimes stays put (catchable)
+
+const FREEZE_ENCRYPT_MS = 5000; // ENCRYPT freeze
+const FREEZE_SHOT_MS = 4000; // projectile freeze
+
+const BYPASS_USES = 3;
+const BYPASS_COOLDOWN_MS = 1500;
+const ENCRYPT_USES = 1;
+const AMMO = 3;
 
 const DIRS = {
-  up: { x: 0, y: -1, label: "moverArriba" },
-  down: { x: 0, y: 1, label: "moverAbajo" },
-  left: { x: -1, y: 0, label: "moverIzquierda" },
-  right: { x: 1, y: 0, label: "moverDerecha" }
+  up: { x: 0, y: -1 },
+  down: { x: 0, y: 1 },
+  left: { x: -1, y: 0 },
+  right: { x: 1, y: 0 }
 };
-const STEP_MS = 220;
+const STEP_DIRS = Object.values(DIRS);
 
-export function initLevel1({ onComplete }) {
-  const gridEl = $("#l1-grid");
-  const terminalEl = $("#l1-terminal");
-  const runBtn = $("#l1-run");
+const now = () => performance.now();
+
+export function initLevel1({ onComplete } = {}) {
+  const board = $("#l1-board");
+  const mazeEl = $("#l1-maze");
+  const tokensEl = $("#l1-tokens");
+  const attemptsEl = $("#l1-attempts");
+  const statusEl = $("#l1-status");
+  const ammoEl = $("#l1-ammo");
+  const bypassEl = $("#l1-bypass-n");
+  const encryptEl = $("#l1-encrypt-n");
+  const fireBtn = $("#l1-fire");
+  const bypassBtn = $("#l1-bypass");
+  const encryptBtn = $("#l1-encrypt");
+  const dpad = $("#l1-dpad");
 
   const state = {
     size: GRID_SIZE,
-    grid: null,
-    pos: { x: 0, y: 0 },
-    step: 1,
-    commands: [],
-    running: false,
-    solved: false
+    walls: null,
+    hero: { x: 0, y: 0 },
+    dir: { x: 0, y: 0 },
+    wantDir: null,
+    agents: [],
+    phone: { x: 0, y: 0 },
+    projectiles: [],
+    attempts: 1,
+    ammo: AMMO,
+    bypassUses: BYPASS_USES,
+    encryptUses: ENCRYPT_USES,
+    lastBypassAt: -Infinity,
+    solved: false,
+    pendingReset: false,
+    frozenAt: 0
   };
 
-  // --- Setup -----------------------------------------------------------------
+  let raf = 0;
+  let last = 0;
+  let running = false;
+  let heroAcc = 0;
+  let phoneAcc = 0;
+  let projAcc = 0;
+  let agentAcc = [0, 0];
 
-  function newPuzzle() {
-    const { size, grid } = generateLevel1();
-    state.size = size;
-    state.grid = grid;
-    state.pos = { x: 0, y: 0 };
-    state.commands = [];
-    state.solved = false;
-    state.running = false;
-    runBtn.disabled = false;
-    gridEl.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
-    renderGrid();
-    renderTerminal();
+  // --- Tokens (hero / agents / phone float above the maze grid) --------------
+  function makeToken(cls, emoji) {
+    const el = document.createElement("div");
+    el.className = "l1-token " + cls;
+    const sp = document.createElement("span");
+    sp.textContent = emoji;
+    el.appendChild(sp);
+    tokensEl.appendChild(el);
+    return { el, sp };
   }
 
-  function renderGrid() {
-    gridEl.innerHTML = "";
+  const heroToken = makeToken("hero", "😎");
+  const agentTokens = [makeToken("agent", "🕵🏻"), makeToken("agent", "🕵🏻")];
+  const phoneToken = makeToken("phone", "📞");
+  const projPool = [];
+
+  function setToken(token, x, y) {
+    const tf = `translate(${x * 100}%, ${y * 100}%)`;
+    if (token.el.style.transform !== tf) token.el.style.transform = tf;
+  }
+
+  function syncProjectiles() {
+    const ps = state.projectiles;
+    while (projPool.length < ps.length) projPool.push(makeToken("projectile", "•"));
+    while (projPool.length > ps.length) projPool.pop().el.remove();
+    ps.forEach((p, i) => setToken(projPool[i], p.x, p.y));
+  }
+
+  // --- Rendering -------------------------------------------------------------
+  function renderMaze() {
+    board.style.setProperty("--n", state.size);
+    mazeEl.innerHTML = "";
     for (let y = 0; y < state.size; y++) {
       for (let x = 0; x < state.size; x++) {
-        const cell = state.grid[y][x];
-        const div = document.createElement("div");
-        div.className = `l1-cell type-${cell.type}`;
-        div.dataset.x = x;
-        div.dataset.y = y;
-        if (state.pos.x === x && state.pos.y === y) {
-          div.classList.add("hero");
-          div.textContent = "😎";
-        } else if (cell.type === "agent") {
-          div.innerHTML = `🕶️<span class="l1-hp">${cell.hp}</span>`;
-        } else if (cell.type === "gate") {
-          div.textContent = cell.open ? "🚪" : "🔐";
-        } else if (cell.type === "booth") {
-          div.textContent = "📞";
-        } else if (cell.type === "wall") {
-          div.textContent = "🧱";
-        } else {
-          div.classList.add("binary");
-          div.textContent = (x + y) % 2 === 0 ? "01" : "10";
+        const cell = document.createElement("div");
+        cell.className = "l1-cell" + (state.walls[y][x] ? " wall" : "");
+        mazeEl.appendChild(cell);
+      }
+    }
+  }
+
+  function sizeTokens() {
+    const width = board.clientWidth || 320;
+    board.style.setProperty("--cell", width / state.size + "px");
+  }
+
+  function paint(t = now()) {
+    setToken(heroToken, state.hero.x, state.hero.y);
+    setToken(phoneToken, state.phone.x, state.phone.y);
+    state.agents.forEach((a, i) => {
+      setToken(agentTokens[i], a.x, a.y);
+      agentTokens[i].el.classList.toggle("frozen", a.frozenUntil > t);
+    });
+    syncProjectiles();
+  }
+
+  function updateHud() {
+    attemptsEl.textContent = state.attempts;
+    ammoEl.textContent = state.ammo;
+    bypassEl.textContent = state.bypassUses;
+    encryptEl.textContent = state.encryptUses;
+    fireBtn.disabled = state.ammo <= 0;
+    bypassBtn.disabled = state.bypassUses <= 0;
+    encryptBtn.disabled = state.encryptUses <= 0;
+  }
+
+  // --- Level lifecycle -------------------------------------------------------
+  function newAttempt() {
+    const level = generateLevel1(state.size);
+    state.size = level.size;
+    state.walls = level.walls;
+    state.hero = { ...level.hero };
+    state.phone = { ...level.phone };
+    state.agents = level.agents.map((a) => ({ ...a, prev: null, frozenUntil: 0 }));
+    state.dir = { x: 0, y: 0 };
+    state.wantDir = null;
+    state.projectiles = [];
+    state.ammo = AMMO;
+    state.bypassUses = BYPASS_USES;
+    state.encryptUses = ENCRYPT_USES;
+    state.lastBypassAt = -Infinity;
+    state.pendingReset = false;
+
+    renderMaze();
+    sizeTokens();
+    paint();
+    updateHud();
+  }
+
+  function newPuzzle() {
+    state.attempts = 1;
+    state.solved = false;
+    newAttempt();
+    statusEl.textContent = "Llegá al 📞 y esquivá a los 🕵🏻";
+    if (isActive() && !document.hidden) start();
+  }
+
+  function isActive() {
+    return document.body.dataset.screen === "screen-level1";
+  }
+
+  // --- Rules -----------------------------------------------------------------
+  function inBounds(p) {
+    return p.x >= 0 && p.y >= 0 && p.x < state.size && p.y < state.size;
+  }
+
+  function canMove(from, dir) {
+    const n = { x: from.x + dir.x, y: from.y + dir.y };
+    return inBounds(n) && !state.walls[n.y][n.x];
+  }
+
+  function cellHas(cell, list) {
+    return list.some((c) => c.x === cell.x && c.y === cell.y);
+  }
+
+  function stepHero() {
+    if (state.solved || state.pendingReset) return;
+    if (state.wantDir && canMove(state.hero, state.wantDir)) state.dir = state.wantDir;
+    if (state.dir.x || state.dir.y) {
+      if (canMove(state.hero, state.dir)) {
+        state.hero = { x: state.hero.x + state.dir.x, y: state.hero.y + state.dir.y };
+      }
+    }
+    collide();
+  }
+
+  function stepAgent(i) {
+    if (state.solved || state.pendingReset) return;
+    const a = state.agents[i];
+    if (a.frozenUntil > now()) return;
+
+    const dist = bfsDistances(state.walls, state.size, state.hero);
+    const other = state.agents[1 - i];
+
+    let opts = STEP_DIRS.map((d) => ({ x: a.x + d.x, y: a.y + d.y })).filter(
+      (n) =>
+        inBounds(n) &&
+        !state.walls[n.y][n.x] &&
+        !(a.prev && n.x === a.prev.x && n.y === a.prev.y) // don't reverse
+    );
+    if (!opts.length && a.prev) opts = [{ ...a.prev }]; // dead end: allow reverse
+    if (!opts.length) return;
+
+    let candidates = opts.filter((n) => !(n.x === other.x && n.y === other.y));
+    if (!candidates.length) candidates = opts;
+
+    let best = candidates[0];
+    let bestDist = dist[best.y][best.x];
+    for (const n of candidates) {
+      const d = dist[n.y][n.x];
+      if (d < bestDist || (d === bestDist && Math.random() < 0.5)) {
+        best = n;
+        bestDist = d;
+      }
+    }
+
+    a.prev = { x: a.x, y: a.y };
+    a.x = best.x;
+    a.y = best.y;
+    collide();
+  }
+
+  function stepPhone() {
+    if (state.solved || state.pendingReset) return;
+    if (Math.random() > PHONE_MOVE_CHANCE) return;
+    const opts = STEP_DIRS.map((d) => ({
+      x: state.phone.x + d.x,
+      y: state.phone.y + d.y
+    })).filter(
+      (n) =>
+        inBounds(n) &&
+        !state.walls[n.y][n.x] &&
+        !(n.x === state.hero.x && n.y === state.hero.y) // never walk onto the hero
+    );
+    if (!opts.length) return;
+    state.phone = opts[Math.floor(Math.random() * opts.length)];
+    collide();
+  }
+
+  function stepProjectiles() {
+    if (state.solved || state.pendingReset) return;
+    const t = now();
+    const survivors = [];
+    for (const p of state.projectiles) {
+      const n = { x: p.x + p.dir.x, y: p.y + p.dir.y };
+      if (!inBounds(n) || state.walls[n.y][n.x]) continue; // hit a wall / left the grid
+
+      const hitIndex = state.agents.findIndex((a) => a.x === n.x && a.y === n.y);
+      if (hitIndex !== -1) {
+        const agent = state.agents[hitIndex];
+        if (agent.frozenUntil <= t) {
+          agent.frozenUntil = t + FREEZE_SHOT_MS;
+          vibrate(20);
         }
-        gridEl.appendChild(div);
+        continue; // projectile is consumed either way
       }
+      p.x = n.x;
+      p.y = n.y;
+      survivors.push(p);
     }
+    state.projectiles = survivors;
   }
 
-  function commandLabel(cmd) {
-    if (cmd.type === "move") return `${DIRS[cmd.dir].label}(${cmd.steps})`;
-    if (cmd.type === "bypass") return `bypassFirewall(${cmd.power})`;
-    if (cmd.type === "decrypt") return `decryptGate(key)`;
-    return "?";
-  }
-
-  function renderTerminal() {
-    terminalEl.innerHTML = "";
-    if (state.commands.length === 0) {
-      const li = document.createElement("li");
-      li.className = "l1-empty";
-      li.textContent = "> _ (agregá comandos abajo)";
-      terminalEl.appendChild(li);
+  function collide() {
+    if (state.solved || state.pendingReset) return;
+    if (state.hero.x === state.phone.x && state.hero.y === state.phone.y) {
+      win();
       return;
     }
-    state.commands.forEach((cmd, i) => {
-      const li = document.createElement("li");
-      li.className = "l1-cmd";
-      li.dataset.index = i;
-      li.innerHTML = `<span class="l1-cmd-text">> ${commandLabel(cmd)}</span>`;
-      const del = document.createElement("button");
-      del.className = "l1-del";
-      del.type = "button";
-      del.textContent = "❌";
-      del.setAttribute("aria-label", "Quitar comando");
-      del.addEventListener("click", () => {
-        state.commands.splice(i, 1);
-        renderTerminal();
-      });
-      li.appendChild(del);
-      terminalEl.appendChild(li);
-    });
+    const t = now();
+    const caught = state.agents.some(
+      (a) => a.frozenUntil <= t && a.x === state.hero.x && a.y === state.hero.y
+    );
+    if (caught) onCaught();
   }
 
-  function addCommand(cmd) {
-    if (state.running) return;
-    state.commands.push(cmd);
-    renderTerminal();
+  function win() {
+    state.solved = true;
+    state.projectiles = [];
+    stop();
+    statusEl.textContent = "¡Cabina alcanzada! 📞";
+    vibrate([30, 60, 30]);
+    toast("¡Exploit ejecutado! Llegaste a la cabina 📞", "success");
+    onComplete && onComplete();
+  }
+
+  function onCaught() {
+    state.pendingReset = true;
+    state.attempts++;
+    attemptsEl.textContent = state.attempts;
+    vibrate([60, 40, 60]);
+    toast("¡Te atraparon! Reiniciando el laberinto…", "error");
+  }
+
+  // --- Actions ---------------------------------------------------------------
+  function setDir(dirName) {
+    const d = DIRS[dirName];
+    if (!d) return;
+    state.wantDir = d;
+  }
+
+  function fire() {
+    if (state.solved || state.ammo <= 0) {
+      if (state.ammo <= 0) toast("Sin municiones", "warning");
+      return;
+    }
+    state.ammo--;
+    const d = state.dir.x || state.dir.y ? { ...state.dir } : { x: 1, y: 0 };
+    const start = { x: state.hero.x, y: state.hero.y };
+    const spawn = { x: start.x + d.x, y: start.y + d.y };
+    const origin = inBounds(spawn) && !state.walls[spawn.y][spawn.x] ? spawn : start;
+    state.projectiles.push({ x: origin.x, y: origin.y, dir: d });
     vibrate(15);
+    updateHud();
+    syncProjectiles();
   }
 
-  // --- Controls --------------------------------------------------------------
-
-  $$("#l1-steps .chip").forEach((chip) => {
-    chip.addEventListener("click", () => {
-      state.step = Number(chip.dataset.step);
-      $$("#l1-steps .chip").forEach((c) => c.classList.toggle("active", c === chip));
-    });
-  });
-
-  $$("#l1-dpad button").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      addCommand({ type: "move", dir: btn.dataset.move, steps: state.step });
-    });
-  });
-
-  $$("#l1-actions button").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      if (btn.dataset.action === "bypass") {
-        const raw = await promptModal({
-          title: "⚔️ Bypass de firewall",
-          question: "Defensa (HP) del agente a neutralizar:",
-          placeholder: "2, 3 o 4"
-        });
-        if (raw === null) return;
-        const power = parseInt(raw, 10);
-        if (!power) { toast("Ingresá un valor numérico", "warning"); return; }
-        addCommand({ type: "bypass", power });
-      } else if (btn.dataset.action === "decrypt") {
-        addCommand({ type: "decrypt" });
-      }
-    });
-  });
-
-  runBtn.addEventListener("click", runExploit);
-
-  // --- Gate puzzle modal -----------------------------------------------------
-
-  function promptModal({ title, question, placeholder = "" }) {
-    return new Promise((resolve) => {
-      const modal = $("#l1-modal");
-      const titleEl = $("#l1-modal-title");
-      const qEl = $("#l1-modal-q");
-      const input = $("#l1-modal-input");
-      const okBtn = $("#l1-modal-ok");
-      const cancelBtn = $("#l1-modal-cancel");
-
-      titleEl.textContent = title;
-      qEl.textContent = question;
-      input.value = "";
-      input.placeholder = placeholder;
-      modal.classList.remove("hidden");
-      setTimeout(() => input.focus(), 60);
-
-      function cleanup(value) {
-        modal.classList.add("hidden");
-        okBtn.removeEventListener("click", onOk);
-        cancelBtn.removeEventListener("click", onCancel);
-        input.removeEventListener("keydown", onKey);
-        resolve(value);
-      }
-      function onOk() { cleanup(input.value.trim()); }
-      function onCancel() { cleanup(null); }
-      function onKey(e) { if (e.key === "Enter") onOk(); }
-
-      okBtn.addEventListener("click", onOk);
-      cancelBtn.addEventListener("click", onCancel);
-      input.addEventListener("keydown", onKey);
-    });
-  }
-
-  async function solveGate() {
-    const value = 8 + Math.floor(Math.random() * 8); // 8..15 -> 4-bit binary
-    const binary = value.toString(2).padStart(4, "0");
-    const answer = await promptModal({
-      title: "🔐 Puerta cifrada",
-      question: `Clave: ¿cuánto es (${binary})₂ en decimal?`,
-      placeholder: "número decimal"
-    });
-    if (answer === null) return false;
-    return parseInt(answer, 10) === value;
-  }
-
-  // --- Execution engine ------------------------------------------------------
-
-  const inBounds = (p) => p.x >= 0 && p.y >= 0 && p.x < state.size && p.y < state.size;
-
-  function neighbors(p) {
-    return Object.values(DIRS).map((d) => ({ x: p.x + d.x, y: p.y + d.y }));
-  }
-
-  function setHighlight(index, variant) {
-    $$("#l1-terminal .l1-cmd").forEach((li) => {
-      const i = Number(li.dataset.index);
-      li.classList.toggle("active", i === index);
-      li.classList.toggle("fail", i === index && variant === "fail");
-    });
-  }
-
-  function clearHighlight() {
-    $$("#l1-terminal .l1-cmd").forEach((li) => li.classList.remove("active", "fail"));
-  }
-
-  async function doMove(dir, steps) {
-    const d = DIRS[dir];
-    for (let s = 0; s < steps; s++) {
-      const next = { x: state.pos.x + d.x, y: state.pos.y + d.y };
-      if (!inBounds(next)) return { ok: false, reason: "Saliste del tablero" };
-      const cell = state.grid[next.y][next.x];
-      if (cell.type === "wall") return { ok: false, reason: "Chocaste con un firewall" };
-      if (cell.type === "agent") return { ok: false, reason: "Un agente bloquea el paso (usá bypassFirewall)" };
-      if (cell.type === "gate" && !cell.open) return { ok: false, reason: "La puerta está cifrada (usá decryptGate)" };
-      state.pos = next;
-      renderGrid();
-      await sleep(STEP_MS);
-      if (cell.type === "booth") return { ok: true, done: true };
-    }
-    return { ok: true };
-  }
-
-  async function doBypass(power) {
-    const target = neighbors(state.pos)
-      .filter(inBounds)
-      .find((n) => state.grid[n.y][n.x].type === "agent" && state.grid[n.y][n.x].hp === power);
-    if (!target) {
-      return { ok: false, reason: "No hay un agente adyacente con esa defensa" };
-    }
-    state.grid[target.y][target.x] = { type: "data" };
-    renderGrid();
-    vibrate([20, 40, 20]);
-    await sleep(STEP_MS + 120);
-    return { ok: true };
-  }
-
-  async function doDecrypt() {
-    const gatePos = neighbors(state.pos)
-      .filter(inBounds)
-      .find((n) => state.grid[n.y][n.x].type === "gate");
-    if (!gatePos) return { ok: false, reason: "No estás junto a una puerta cifrada" };
-    const ok = await solveGate();
-    if (!ok) return { ok: false, reason: "Clave incorrecta" };
-    state.grid[gatePos.y][gatePos.x].open = true;
-    renderGrid();
-    await sleep(STEP_MS);
-    return { ok: true };
-  }
-
-  async function runCommand(cmd) {
-    if (cmd.type === "move") return doMove(cmd.dir, cmd.steps);
-    if (cmd.type === "bypass") return doBypass(cmd.power);
-    if (cmd.type === "decrypt") return doDecrypt();
-    return { ok: true };
-  }
-
-  async function runExploit() {
-    if (state.running || state.solved) return;
-    if (state.commands.length === 0) {
-      toast("Agregá al menos un comando al script", "warning");
+  function bypass() {
+    if (state.solved) return;
+    const t = now();
+    if (state.bypassUses <= 0) {
+      toast("Ya no te quedan BYPASS", "warning");
       return;
     }
-    state.running = true;
-    runBtn.disabled = true;
-    vibrate(30);
-
-    // Reset hero to start before each run.
-    state.pos = { x: 0, y: 0 };
-    renderGrid();
-
-    let reached = false;
-    for (let i = 0; i < state.commands.length; i++) {
-      setHighlight(i, "active");
-      const res = await runCommand(state.commands[i]);
-      if (!res.ok) {
-        setHighlight(i, "fail");
-        vibrate([40, 60, 40]);
-        toast("BUG: " + res.reason, "error");
-        state.running = false;
-        runBtn.disabled = false;
-        return;
-      }
-      if (res.done) { reached = true; break; }
+    if (t - state.lastBypassAt < BYPASS_COOLDOWN_MS) {
+      toast("BYPASS enfriando…", "warning");
+      return;
     }
+    state.lastBypassAt = t;
+    state.bypassUses--;
 
-    clearHighlight();
-    state.running = false;
-    runBtn.disabled = false;
+    const keep = [state.hero, ...state.agents.map((a) => ({ x: a.x, y: a.y }))];
+    state.walls = regenerateWalls(state.size, keep);
+    state.agents.forEach((a) => (a.prev = null));
+    relocatePhone();
 
-    if (reached) {
-      state.solved = true;
-      runBtn.disabled = true;
-      toast("¡Exploit ejecutado! Llegaste a la cabina 📞", "success");
-      vibrate([30, 50, 30]);
-      onComplete && onComplete();
-    } else {
-      toast("El script terminó sin llegar a la cabina", "warning");
+    renderMaze();
+    sizeTokens();
+    paint(t);
+    updateHud();
+    statusEl.textContent = "Laberinto reconfigurado ⚔️";
+    vibrate([15, 30, 15]);
+  }
+
+  function relocatePhone() {
+    const dist = bfsDistances(state.walls, state.size, state.hero);
+    const occupied = [state.hero, ...state.agents];
+    const cells = openCells(state.walls, state.size).filter(
+      (c) =>
+        dist[c.y][c.x] !== Infinity &&
+        !occupied.some((o) => o.x === c.x && o.y === c.y)
+    );
+    if (!cells.length) return;
+    cells.sort((a, b) => dist[b.y][b.x] - dist[a.y][a.x]);
+    const top = Math.max(1, Math.ceil(cells.length * 0.4));
+    state.phone = cells[Math.floor(Math.random() * top)];
+  }
+
+  function encrypt() {
+    if (state.solved) return;
+    if (state.encryptUses <= 0) {
+      toast("ENCRYPT ya fue usado", "warning");
+      return;
+    }
+    const t = now();
+    const dist = bfsDistances(state.walls, state.size, state.hero);
+    let bestIndex = -1;
+    let bestDist = Infinity;
+    state.agents.forEach((a, i) => {
+      if (a.frozenUntil > t) return;
+      const d = dist[a.y][a.x];
+      if (d < bestDist) {
+        bestDist = d;
+        bestIndex = i;
+      }
+    });
+    if (bestIndex === -1) {
+      toast("No hay agentes activos para congelar", "warning");
+      return;
+    }
+    state.encryptUses--;
+    state.agents[bestIndex].frozenUntil = t + FREEZE_ENCRYPT_MS;
+    updateHud();
+    paint(t);
+    statusEl.textContent = "Agente congelado ❄️";
+    vibrate([20, 40, 20]);
+  }
+
+  // --- Main loop -------------------------------------------------------------
+  function start() {
+    if (running || state.solved) return;
+    if (!isActive() || document.hidden) return;
+    running = true;
+    last = now();
+    heroAcc = phoneAcc = projAcc = 0;
+    agentAcc = [0, 0];
+    raf = requestAnimationFrame(frame);
+  }
+
+  function stop() {
+    running = false;
+    if (raf) {
+      cancelAnimationFrame(raf);
+      raf = 0;
     }
   }
 
-  newPuzzle();
+  function frame() {
+    if (!running) return;
+    raf = requestAnimationFrame(frame);
+
+    const t = now();
+    let dt = t - last;
+    last = t;
+    if (dt < 0) dt = 0;
+    if (dt > 150) dt = 150; // clamp after the tab was throttled
+
+    state.frozenAt = t;
+
+    heroAcc += dt;
+    while (heroAcc >= HERO_MS && !state.solved && !state.pendingReset) {
+      heroAcc -= HERO_MS;
+      stepHero();
+    }
+
+    for (let i = 0; i < state.agents.length; i++) {
+      agentAcc[i] += dt;
+      while (agentAcc[i] >= AGENT_MS && !state.solved && !state.pendingReset) {
+        agentAcc[i] -= AGENT_MS;
+        stepAgent(i);
+      }
+    }
+
+    phoneAcc += dt;
+    while (phoneAcc >= PHONE_MS && !state.solved && !state.pendingReset) {
+      phoneAcc -= PHONE_MS;
+      stepPhone();
+    }
+
+    projAcc += dt;
+    while (projAcc >= PROJ_MS && !state.solved && !state.pendingReset) {
+      projAcc -= PROJ_MS;
+      stepProjectiles();
+    }
+
+    if (state.solved) {
+      stop();
+      return;
+    }
+    if (state.pendingReset) {
+      state.pendingReset = false;
+      newAttempt();
+      statusEl.textContent = "Llegá al 📞 y esquivá a los 🕵🏻";
+    }
+    paint(t);
+  }
+
+  // --- Input -----------------------------------------------------------------
+  const KEY_DIRS = {
+    ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right",
+    w: "up", a: "left", s: "down", d: "right",
+    W: "up", A: "left", S: "down", D: "right"
+  };
+
+  function onKey(e) {
+    if (!isActive()) return;
+    const dir = KEY_DIRS[e.key];
+    if (dir) {
+      e.preventDefault();
+      setDir(dir);
+      return;
+    }
+    if (e.key === " " || e.key === "f" || e.key === "F") {
+      e.preventDefault();
+      fire();
+    } else if (e.key === "b" || e.key === "B") {
+      e.preventDefault();
+      bypass();
+    } else if (e.key === "e" || e.key === "E") {
+      e.preventDefault();
+      encrypt();
+    }
+  }
+
+  dpad.querySelectorAll("button[data-move]").forEach((btn) => {
+    const press = (e) => {
+      e.preventDefault();
+      setDir(btn.dataset.move);
+    };
+    btn.addEventListener("pointerdown", press);
+  });
+
+  fireBtn.addEventListener("click", fire);
+  bypassBtn.addEventListener("click", bypass);
+  encryptBtn.addEventListener("click", encrypt);
+
+  window.addEventListener("keydown", onKey);
+
+  // --- Visibility / lifecycle hooks -----------------------------------------
+  const sync = () => {
+    if (isActive() && !document.hidden && !state.solved) start();
+    else stop();
+  };
+  new MutationObserver(sync).observe(document.body, {
+    attributes: true,
+    attributeFilter: ["data-screen"]
+  });
+  document.addEventListener("visibilitychange", sync);
+
+  if (typeof ResizeObserver !== "undefined") {
+    new ResizeObserver(sizeTokens).observe(board);
+  } else {
+    window.addEventListener("resize", sizeTokens);
+  }
+
+  // --- Go --------------------------------------------------------------------
+  newAttempt();
+  updateHud();
+  sync();
+
   return { newPuzzle };
 }

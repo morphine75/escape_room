@@ -6,6 +6,7 @@
 // agents can always chase and the phone is always reachable.
 
 export const GRID_SIZE = 7;
+export const AGENT_COUNT = 1;
 
 const WALL_DENSITY = 0.26; // share of random wall blocks before the connectivity check
 const MIN_OPEN_RATIO = 0.62; // keep the maze open enough for a Pac-Man feel
@@ -140,14 +141,14 @@ export function generateLevel1(size = GRID_SIZE) {
     0.3
   );
 
-  // Agents: two distinct cells, spread from the hero and from each other.
+  // Agents: distinct cells far from the hero, spread from each other.
   const far = reachable.filter(
     (c) =>
       !(c.x === 0 && c.y === 0) &&
       !(c.x === phone.x && c.y === phone.y) &&
       dist[c.y][c.x] >= Math.max(3, Math.floor(size * 0.6))
   );
-  const pool = far.length >= 2
+  const pool = far.length >= AGENT_COUNT
     ? far
     : reachable.filter(
         (c) =>
@@ -155,18 +156,20 @@ export function generateLevel1(size = GRID_SIZE) {
           !(c.x === phone.x && c.y === phone.y)
       );
 
-  const agentA = pool.length ? pool[Math.floor(Math.random() * pool.length)] : start;
-  const agentB =
-    pickFarthestFrom(pool, agentA, [start, phone, agentA]) || { ...agentA };
+  const agents = [];
+  const first = pool.length ? pool[Math.floor(Math.random() * pool.length)] : start;
+  agents.push({ x: first.x, y: first.y });
+  while (agents.length < AGENT_COUNT) {
+    const next = pickFarthestFrom(pool, agents[agents.length - 1], [start, phone, ...agents]);
+    if (!next) break;
+    agents.push({ x: next.x, y: next.y });
+  }
 
   return {
     size,
     walls,
     hero: { x: start.x, y: start.y },
     phone: { x: phone.x, y: phone.y },
-    agents: [
-      { x: agentA.x, y: agentA.y },
-      { x: agentB.x, y: agentB.y }
-    ]
+    agents
   };
 }

@@ -1,5 +1,7 @@
-// Coordinator dashboard: creates the room, shows live progress and is the SOLE
-// authority that writes `current_phase` (inside transactions) — see DESIGN.md 9.
+// Coordinator dashboard: creates the room, starts the round, shows live progress
+// and resets the room. Players advance between levels on their own (each client
+// moves to the next level as soon as it clears one), so there is no phase
+// advance here — see DESIGN.md 9 #12.
 import { db, isConfigured } from "./firebase.js";
 import {
   ref, update, get, remove, runTransaction
@@ -59,15 +61,6 @@ function wireSetup() {
     }
   });
 
-  // Safety hatch: advance the phase even if a disconnected player never finished,
-  // so a live session cannot deadlock. Still the single writer of current_phase.
-  $("#dash-force").addEventListener("click", () => {
-    if (!state.data || !state.roomId) return;
-    const phase = state.data.current_phase;
-    if (phase === 1) advanceToLevel2(state.data.players || {});
-    else if (phase === 2) finishGame();
-  });
-
   // Reset for the next group: keeps the same players and resets their progress.
   $("#dash-reset").addEventListener("click", () => {
     if (!state.roomId) return;
@@ -106,16 +99,14 @@ function onData(data) {
   state.data = data;
   showScreen("dash-room-view");
   render(data);
-  maybeAdvance(data);
 }
 
 // --- Rendering ---------------------------------------------------------------
 
-function phaseLabel(data) {
+function phaseLabel(data, list) {
   if (!data.started) return "Lobby";
-  if (data.current_phase === 1) return "Nivel 1";
-  if (data.current_phase === 2) return "Nivel 2";
-  return "Finalizado";
+  if (list.length && list.every((p) => p.level_2_completed === true)) return "Finalizado";
+  return "En curso";
 }
 
 function render(data) {
@@ -125,25 +116,22 @@ function render(data) {
   const required = data.required_players || 0;
 
   $("#dash-title").textContent = "Sala " + state.roomId;
-  $("#dash-phase").textContent = phaseLabel(data);
+  $("#dash-phase").textContent = phaseLabel(data, list);
   $("#dash-joined").textContent = String(total);
   $("#dash-required-view").textContent = String(required);
 
-  const field = data.current_phase === 2 ? "level_2_completed" : "level_1_completed";
-  const done = list.filter((p) => p[field] === true).length;
-  $("#dash-bar").style.width = total ? Math.min(100, (done / total) * 100) + "%" : "0%";
-  $("#dash-progress").textContent = `${done} / ${total} completaron ${
-    data.current_phase === 2 ? "el Nivel 2" : "el Nivel 1"
-  }`;
+  const done1 = list.filter((p) => p.level_1_completed === true).length;
+  const done2 = list.filter((p) => p.level_2_completed === true).length;
+  $("#dash-bar").style.width = total ? Math.min(100, ((done1 + done2) / (2 * total)) * 100) + "%" : "0%";
+  $("#dash-progress").textContent =
+    `Nivel 1: ${done1} / ${total} · Nivel 2: ${done2} / ${total}`;
 
   const startBtn = $("#dash-start");
   startBtn.disabled = data.started === true || total === 0;
   startBtn.textContent = data.started ? "Partida en curso" : "▶️ Iniciar partida";
 
-  const forceBtn = $("#dash-force");
-  forceBtn.disabled = !data.started || data.current_phase >= 3;
   $("#dash-hint").textContent = data.started
-    ? "Las fases avanzan automáticamente cuando todos completan."
+    ? "Cada jugador pasa solo al siguiente nivel cuando completa el anterior."
     : `Se necesitan jugadores. Recomendado: ${required}.`;
 
   renderRoster(list);
@@ -177,62 +165,6 @@ function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
   }[c]));
-}
-
-// --- Phase progression (single writer, transactional) ------------------------
-
-function maybeAdvance(data) {
-  if (!data.started || state.transitioning) return;
-  const list = Object.values(data.players || {});
-  if (list.length === 0) return;
-
-  if (data.current_phase === 1 && list.every((p) => p.level_1_completed === true)) {
-    advanceToLevel2(data.players);
-  } else if (data.current_phase === 2 && list.every((p) => p.level_2_completed === true)) {
-    finishGame();
-  }
-}
-
-async function advanceToLevel2(players) {
-  state.transitioning = true;
-  try {
-    // First half -> serif, second half -> vector (DESIGN.md 7.1).
-    const ids = Object.keys(players).sort();
-    const serifCount = Math.ceil(ids.length / 2);
-
-    await runTransaction(ref(db, `rooms/${state.roomId}`), (room) => {
-      if (!room || room.current_phase !== 1) return room; // already advanced
-      room.current_phase = 2;
-      room.level_2_unlocked = true;
-      ids.forEach((id, i) => {
-        if (room.players && room.players[id]) {
-          room.players[id].level_2_game = i < serifCount ? "serif" : "vector";
-        }
-      });
-      return room;
-    });
-    toast("Nivel 2 desbloqueado", "success");
-  } catch (err) {
-    toast("Error al desbloquear el Nivel 2: " + err.message, "error");
-  } finally {
-    state.transitioning = false;
-  }
-}
-
-async function finishGame() {
-  state.transitioning = true;
-  try {
-    await runTransaction(ref(db, `rooms/${state.roomId}`), (room) => {
-      if (!room || room.current_phase !== 2) return room;
-      room.current_phase = 3; // finished (no Phase 3 gameplay)
-      return room;
-    });
-    toast("¡El equipo completó la misión! 🎉", "success");
-  } catch (err) {
-    toast("Error al finalizar: " + err.message, "error");
-  } finally {
-    state.transitioning = false;
-  }
 }
 
 // Resets the room back to the lobby. `clearPlayers` removes every registered

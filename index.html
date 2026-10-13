@@ -55,7 +55,7 @@
 
     <div class="l1-hud">
       <span>🎯 Intento <span id="l1-attempts">1</span></span>
-      <span id="l1-status" class="l1-status">Llegá al 📞 y esquivá a los 🕵🏻</span>
+      <span id="l1-status" class="l1-status">Llegá al 📞 y esquivá al 🕵🏻</span>
     </div>
 
     <div id="l1-board" class="l1-board" style="--n: 7">
@@ -87,13 +87,11 @@
     </div>
   </section>
 
-  <!-- Screen 4 / 7: Individual completion & group wait -->
+  <!-- Transition: Level 1 cleared, Level 2 assignment being saved -->
   <section id="screen-wait" class="screen">
     <div class="card center">
-      <h2 id="wait-title">Esperando al resto del equipo…</h2>
-      <p><strong id="wait-count"></strong></p>
-      <div class="progress"><span id="wait-bar"></span></div>
-      <p class="muted" id="wait-hint" style="margin-top:12px"></p>
+      <h2>¡Nivel 1 superado! 📞</h2>
+      <p class="muted">Cargando el Nivel 2…</p>
     </div>
   </section>
 
@@ -101,10 +99,11 @@
   <section id="screen-serif" class="screen">
     <div class="l2-top">
       <span>⏱️ <span id="serif-time">30</span>s</span>
+      <span>❌ <span id="serif-errors">0/2</span></span>
       <span>🎯 <span id="serif-score">0</span></span>
     </div>
     <div id="serif-grid" class="serif-grid"></div>
-    <p class="center muted">Tocá SOLO las tipografías CON SERIFAS</p>
+    <p class="center muted">Tocá SOLO las tipografías CON SERIFAS · 2 errores y se reinicia</p>
   </section>
 
   <!-- Screen 6b: Level 2 — Shape Type -->
@@ -121,7 +120,8 @@
   <section id="screen-victory" class="screen">
     <div class="card center">
       <h1>🎉 Sistema infiltrado</h1>
-      <p>El equipo completó la Misión Cero.</p>
+      <p>Completaste la Misión Cero.</p>
+      <p><strong id="victory-team"></strong></p>
       <p class="muted">Sigan las indicaciones del coordinador para la próxima estación.</p>
     </div>
   </section>

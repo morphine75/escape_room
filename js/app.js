@@ -1,8 +1,12 @@
-// Player-side controller: registration -> lobby -> Level 1 -> wait -> Level 2 -> victory.
-// Screen choice is driven entirely by the live room state in Firebase.
+// Player-side controller: registration -> lobby -> Level 1 -> Level 2 -> victory.
+// The coordinator only starts the round; after that each player advances on their
+// own as soon as they clear a level (no waiting for the group or the coordinator).
+// Screen choice is driven by the player's own progress in the live room state.
 import { isConfigured } from "./firebase.js";
 import { subscribeRoom, countCompleted } from "./sync.js";
-import { joinRoom, markLevelComplete, markConnected, normalizeRoomId } from "./room.js";
+import {
+  joinRoom, markLevelComplete, completeLevel1, markConnected, normalizeRoomId
+} from "./room.js";
 import { loadSession, clearSession } from "./session.js";
 import { showScreen, toast, $ } from "./ui.js";
 import { initLevel1 } from "./levels/level1/level1.js";
@@ -23,6 +27,7 @@ const state = {
   level1NeedsRestart: false,
   level2NeedsRestart: false,
   gameStartedSeen: false,
+  assigning: false,
   unsub: null
 };
 
@@ -126,20 +131,32 @@ function onData(data) {
 
   state.gameStartedSeen = true;
 
-  const phase = data.current_phase || 1;
-  if (phase === 1) {
-    if (me.level_1_completed) renderWait(data, 1);
-    else renderLevel1(data, me);
+  if (!me.level_1_completed) {
+    renderLevel1(data, me);
     return;
   }
-  if (phase === 2) {
-    if (me.level_2_completed) { renderWait(data, 2); return; }
+  if (!me.level_2_completed) {
     if (me.level_2_game === "serif") renderSerif();
     else if (me.level_2_game === "vector") renderVector();
-    else renderWait(data, 2);
+    else {
+      // Level 1 saved but no game yet (e.g. the assignment failed or the page
+      // was refreshed mid-way): assign it now.
+      ensureLevel2Assigned();
+      renderLoadingLevel2();
+    }
     return;
   }
-  renderVictory();
+  renderVictory(data);
+}
+
+function ensureLevel2Assigned() {
+  if (state.assigning) return;
+  state.assigning = true;
+  completeLevel1(state.roomId, state.playerId)
+    .catch((e) => toast("No se pudo guardar el progreso: " + e.message, "error"))
+    .finally(() => {
+      state.assigning = false;
+    });
 }
 
 function updateHeader(me) {
@@ -174,11 +191,7 @@ function renderLevel1(data, me) {
 
   if (!state.level1Ctl) {
     state.level1Ctl = initLevel1({
-      onComplete: () => {
-        markLevelComplete(state.roomId, state.playerId, 1).catch((e) =>
-          toast("No se pudo guardar el progreso: " + e.message, "error")
-        );
-      }
+      onComplete: ensureLevel2Assigned
     });
     state.level1NeedsRestart = false;
   } else if (state.level1NeedsRestart) {
@@ -187,21 +200,9 @@ function renderLevel1(data, me) {
   }
 }
 
-function renderWait(data, level) {
+// Brief transition while the Level 2 assignment is being saved.
+function renderLoadingLevel2() {
   showScreen("screen-wait");
-  const key = level === 1 ? "level_1_completed" : "level_2_completed";
-  const players = Object.values(data.players || {});
-  const done = players.filter((p) => p && p[key] === true).length;
-  const total = data.required_players || players.length;
-
-  $("#wait-title").textContent =
-    level === 1 ? "Esperando al resto del equipo…" : "Esperando al resto del equipo (fase final)…";
-  $("#wait-count").textContent = `${done} / ${total} completaron`;
-  $("#wait-bar").style.width = total ? Math.min(100, (done / total) * 100) + "%" : "0%";
-  $("#wait-hint").textContent =
-    level === 1
-      ? "Cuando todos terminen se desbloquea el Nivel 2."
-      : "Cuando todos terminen, el equipo gana la partida.";
 }
 
 // Creates the Level 2 controller once (serif or vector) and restarts it on reset.
@@ -242,8 +243,15 @@ function renderVector() {
   );
 }
 
-function renderVictory() {
+function renderVictory(data) {
   showScreen("screen-victory");
+  const players = Object.values(data.players || {});
+  const done = countCompleted(data.players, "level_2_completed");
+  const total = players.length;
+  $("#victory-team").textContent =
+    done >= total
+      ? "¡Todo el equipo completó la misión! 🎉"
+      : `Equipo: ${done} / ${total} completaron la misión`;
 }
 
 boot();

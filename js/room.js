@@ -1,7 +1,7 @@
 // Room + player data operations against Firebase Realtime Database.
 import { db } from "./firebase.js";
 import {
-  ref, set, get, update, onDisconnect, serverTimestamp
+  ref, set, get, update, onDisconnect, serverTimestamp, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { randomId, saveSession } from "./session.js";
 
@@ -92,4 +92,30 @@ export async function markLevelComplete(roomId, playerId, level, extra = {}) {
   if (level === 1) payload.level_1_completed = true;
   if (level === 2) payload.level_2_completed = true;
   await update(ref(db, `rooms/${roomId}/players/${playerId}`), payload);
+}
+
+// Level 1 done: mark it and self-assign the Level 2 mini-game in one transaction,
+// so the player moves on immediately without waiting for the group or the
+// coordinator. The game goes to whichever of serif / vector has fewer players so
+// far (ties -> serif), which keeps the split close to half and half.
+export async function completeLevel1(roomId, playerId) {
+  await runTransaction(ref(db, `rooms/${roomId}/players`), (players) => {
+    if (!players || !players[playerId]) return players; // retried with server data
+    const me = players[playerId];
+    if (!me.level_2_game) {
+      let serif = 0;
+      let vector = 0;
+      Object.entries(players).forEach(([id, p]) => {
+        if (id === playerId || !p) return;
+        if (p.level_2_game === "serif") serif++;
+        else if (p.level_2_game === "vector") vector++;
+      });
+      me.level_2_game = serif <= vector ? "serif" : "vector";
+    }
+    me.level_1_completed = true;
+    return players;
+  });
+  await update(ref(db, `rooms/${roomId}/players/${playerId}`), {
+    last_changed: serverTimestamp()
+  });
 }

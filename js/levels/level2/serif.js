@@ -2,7 +2,8 @@
 //
 // Design decision (DESIGN.md section 9): if the 30s timer runs out without
 // completion, a fresh grid is generated automatically. No penalty, and the
-// player never blocks the group.
+// player never blocks the group. Only MAX_ERRORS wrong taps (sans-serif letters)
+// are allowed per round: reaching that count restarts the round with a new grid.
 import { $, vibrate, toast } from "../../ui.js";
 
 const SERIF_FONTS = ["Georgia", "Garamond", "'Times New Roman'", "'Courier New'"];
@@ -11,13 +12,16 @@ const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 const GRID = 3;
 const TIME_LIMIT = 30; // seconds
 const POINTS_PER_HIT = 100;
+const MAX_ERRORS = 2;
 
 export function initSerif({ onComplete }) {
   const gridEl = $("#serif-grid");
   const timeEl = $("#serif-time");
   const scoreEl = $("#serif-score");
+  const errorsEl = $("#serif-errors");
 
   let score = 0;
+  let errors = 0;
   let remainingSerifs = 0;
   let remainingTime = TIME_LIMIT;
   let timer = null;
@@ -30,6 +34,8 @@ export function initSerif({ onComplete }) {
     gridEl.style.gridTemplateColumns = `repeat(${GRID}, 1fr)`;
     score = 0;
     scoreEl.textContent = "0";
+    errors = 0;
+    errorsEl.textContent = `0/${MAX_ERRORS}`;
     remainingSerifs = 0;
 
     const total = GRID * GRID;
@@ -64,10 +70,17 @@ export function initSerif({ onComplete }) {
       vibrate(20);
       if (remainingSerifs <= 0) win();
     } else {
+      errors++;
+      errorsEl.textContent = `${errors}/${MAX_ERRORS}`;
+      vibrate([30, 40]);
+      if (errors >= MAX_ERRORS) {
+        toast(`❌ ${MAX_ERRORS} errores. Nueva ronda…`, "error");
+        reset();
+        return;
+      }
       toast("❌ Error: That's Sans Serif!", "error", 1400);
       btn.classList.add("shake");
       setTimeout(() => btn.classList.remove("shake"), 400);
-      vibrate([30, 40]);
     }
   }
 

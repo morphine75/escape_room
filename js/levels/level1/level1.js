@@ -1,16 +1,18 @@
 // Level 1 — "Matrix Protocol" (real-time arcade / Pac-Man style).
 //
 // The hero (😎) moves around a 7x7 maze with the arrow keys / on-screen D-pad and
-// must intercept the phone booth (📞), which also wanders. Two agents (🕵🏻) chase
+// must intercept the phone booth (📞), which also wanders. An agent (🕵🏻) chases
 // the hero:
 //   - DISPARAR (Ammo) fires a projectile in the facing direction; hitting an
 //     agent freezes it for a few seconds.
 //   - BYPASS rebuilds the maze live (limited uses + cooldown).
 //   - ENCRYPT freezes the nearest active agent (single use per attempt).
-// If an agent catches the hero the attempt restarts with a fresh maze, until the
+// If the agent catches the hero the attempt restarts with a fresh maze (no toast:
+// it would cover the controls; the HUD status line reports it instead), until the
 // hero reaches the phone, which marks level_1_completed in Firebase.
 import {
   GRID_SIZE,
+  AGENT_COUNT,
   generateLevel1,
   regenerateWalls,
   openCells,
@@ -81,7 +83,7 @@ export function initLevel1({ onComplete } = {}) {
   let heroAcc = 0;
   let phoneAcc = 0;
   let projAcc = 0;
-  let agentAcc = [0, 0];
+  let agentAcc = new Array(AGENT_COUNT).fill(0);
 
   // --- Tokens (hero / agents / phone float above the maze grid) --------------
   function makeToken(cls, emoji) {
@@ -95,7 +97,7 @@ export function initLevel1({ onComplete } = {}) {
   }
 
   const heroToken = makeToken("hero", "😎");
-  const agentTokens = [makeToken("agent", "🕵🏻"), makeToken("agent", "🕵🏻")];
+  const agentTokens = Array.from({ length: AGENT_COUNT }, () => makeToken("agent", "🕵🏻"));
   const phoneToken = makeToken("phone", "📞");
   const projPool = [];
 
@@ -132,9 +134,12 @@ export function initLevel1({ onComplete } = {}) {
   function paint(t = now()) {
     setToken(heroToken, state.hero.x, state.hero.y);
     setToken(phoneToken, state.phone.x, state.phone.y);
-    state.agents.forEach((a, i) => {
-      setToken(agentTokens[i], a.x, a.y);
-      agentTokens[i].el.classList.toggle("frozen", a.frozenUntil > t);
+    agentTokens.forEach((token, i) => {
+      const a = state.agents[i];
+      token.el.hidden = !a;
+      if (!a) return;
+      setToken(token, a.x, a.y);
+      token.el.classList.toggle("frozen", a.frozenUntil > t);
     });
     syncProjectiles();
   }
@@ -176,7 +181,7 @@ export function initLevel1({ onComplete } = {}) {
     state.attempts = 1;
     state.solved = false;
     newAttempt();
-    statusEl.textContent = "Llegá al 📞 y esquivá a los 🕵🏻";
+    statusEl.textContent = "Llegá al 📞 y esquivá al 🕵🏻";
     if (isActive() && !document.hidden) start();
   }
 
@@ -211,7 +216,7 @@ export function initLevel1({ onComplete } = {}) {
     if (a.frozenUntil > now()) return;
 
     const dist = bfsDistances(state.walls, state.size, state.hero);
-    const other = state.agents[1 - i];
+    const others = state.agents.filter((_, j) => j !== i);
 
     let opts = STEP_DIRS.map((d) => ({ x: a.x + d.x, y: a.y + d.y })).filter(
       (n) =>
@@ -222,7 +227,7 @@ export function initLevel1({ onComplete } = {}) {
     if (!opts.length && a.prev) opts = [{ ...a.prev }]; // dead end: allow reverse
     if (!opts.length) return;
 
-    let candidates = opts.filter((n) => !(n.x === other.x && n.y === other.y));
+    let candidates = opts.filter((n) => !others.some((o) => o.x === n.x && o.y === n.y));
     if (!candidates.length) candidates = opts;
 
     let best = candidates[0];
@@ -310,7 +315,6 @@ export function initLevel1({ onComplete } = {}) {
     state.attempts++;
     attemptsEl.textContent = state.attempts;
     vibrate([60, 40, 60]);
-    toast("¡Te atraparon! Reiniciando el laberinto…", "error");
   }
 
   // --- Actions ---------------------------------------------------------------
@@ -414,7 +418,7 @@ export function initLevel1({ onComplete } = {}) {
     running = true;
     last = now();
     heroAcc = phoneAcc = projAcc = 0;
-    agentAcc = [0, 0];
+    agentAcc.fill(0);
     raf = requestAnimationFrame(frame);
   }
 
@@ -469,7 +473,7 @@ export function initLevel1({ onComplete } = {}) {
     if (state.pendingReset) {
       state.pendingReset = false;
       newAttempt();
-      statusEl.textContent = "Llegá al 📞 y esquivá a los 🕵🏻";
+      statusEl.textContent = "🚨 ¡Te atraparon! Laberinto nuevo";
     }
     paint(t);
   }

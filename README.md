@@ -81,12 +81,15 @@ so a simple HTTP host is enough.
 2. Players open `index.html`, enter the room code and their name → realtime lobby.
 3. Coordinator presses **Iniciar partida**.
 4. Everyone plays **Nivel 1 (Matrix Protocol)** individually: a real-time 7×7 maze
-   arcade where they must reach the wandering phone booth 📞 while two agents 🕵🏻 chase
+   arcade where they must reach the wandering phone booth 📞 while an agent 🕵🏻 chases
    them (see controls below). Getting caught restarts with a new maze, attempts are unlimited.
-5. When **all** players complete, the coordinator dashboard advances the room to
-   Nivel 2 and assigns each player `serif` or `vector` (first half / second half).
-6. Everyone solves their Nivel 2 mini-game.
-7. When **all** complete, the game ends with the group-victory screen.
+5. As soon as a player clears Nivel 1 they go **straight to Nivel 2** — no waiting for the
+   rest of the group or for the coordinator. Their client assigns them `serif` or `vector`
+   (whichever has fewer players so far, keeping the split balanced).
+6. Each player solves their Nivel 2 mini-game. In "I Shot The Serif" only **2 errors** are
+   allowed: the 2nd wrong tap restarts the round.
+7. Finishing Nivel 2 shows the mission-complete screen with a live team counter; when
+   everyone is done it reads "¡Todo el equipo completó la misión!".
 
 ### Nivel 1 controls
 
@@ -102,8 +105,6 @@ Ammo and uses refill on every new attempt.
 ### Coordinator controls
 
 - **▶️ Iniciar partida**: starts the round (unlocks Nivel 1).
-- **⏭️ Forzar avance de fase**: safety hatch to advance the phase even if a
-  disconnected player never finishes (avoids deadlocks in a live session).
 - **🔄 Reiniciar partida**: resets the round and returns to the lobby, keeping the
   registered players. Their progress is cleared so the same group can replay.
 - **🧹 Vaciar sala**: deletes every registered player and returns to the lobby,
@@ -117,4 +118,5 @@ on the next **Iniciar partida** — no page reload needed.
 
 See `system_design_architecture.md` section 9 (grid size, Serif timeout, Shape Type
 tolerance, single writer for `current_phase`, Level 2 assignment, no Phase 3, presence,
-reset / replay, forced phase advance, Level 1 digital rain and the real-time Level 1 arcade).
+reset / replay, Level 1 digital rain, the real-time Level 1 arcade, individual automatic
+progression, 1 agent without capture toasts, and the 2-error limit in Serif).

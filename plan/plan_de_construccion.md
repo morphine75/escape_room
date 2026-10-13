@@ -15,11 +15,11 @@ Los documentos dejan puntos abiertos. Estas son las resoluciones adoptadas:
 | **Tamaño del grid** | REQUIREMENTS dice 4×4 (FR-2.1); DESIGN dice 5×5/6×6 | Usar **7×7** (antes 5×5; se amplió con el rework en tiempo real), constante `GRID_SIZE`. La discrepancia con FR-2.1 queda documentada (el diseño prevalece sobre la spec). |
 | **Timeout de "I Shot The Serif"** | El diseño no lo define | **Reintento automático**: al agotarse el tiempo se genera un grid nuevo y se reinicia la ronda, sin penalización. Nunca bloquea al grupo. |
 | **Tolerancia de "Shape Type"** | `tolerance = 20 px` ⇒ 85 % ≈ 3 px (inviable en táctil) | Escalar la tolerancia al canvas: **radio de acierto ≈ 8 % del lado menor** (~40–60 px en móvil). |
-| **Quién escribe `current_phase`** | El diseño solo "recomienda" un único escritor | **El dashboard/coordinador** es la única autoridad; escribe con `transaction()` para evitar carreras. Los demás clientes solo reaccionan al cambio. |
-| **Asignación Nivel 2** | "El coordinador define N al desbloquear" | El coordinador asigna `serif`/`vector` con `transaction()` sobre la lista de `playerId` ordenada: primera mitad `serif`, segunda `vector`. |
+| **Progresión entre niveles** | Antes: espera grupal y el dashboard avanzaba `current_phase` | **Individual y automática**: cada cliente pasa al siguiente nivel apenas supera el actual, sin esperar al grupo ni al coordinador. El coordinador solo inicia y reinicia la partida. |
+| **Asignación Nivel 2** | "El coordinador define N al desbloquear" | El **cliente** se autoasigna al completar el Nivel 1, con `transaction()` sobre `players`: toma el juego con menos jugadores (empate → `serif`). |
 | **Fase 3** | Sin definir | **No se implementa mecánica.** El juego concluye al terminar la Fase 2: tras completar el Nivel 2 el juego finaliza con la pantalla de victoria grupal. |
 | **Presencia / desconexión** | NFR-4 | `onDisconnect()` de Firebase marca jugadores desconectados; `localStorage` reanuda la sesión tras un refresh. |
-| **Mecánica del Nivel 1** | El modo "armar lista de comandos y ejecutar" (puerta `decryptGate`, agentes con HP) fue reemplazado | **Arcade en tiempo real estilo Pac-Man**: 2 agentes persiguen por BFS, el 📞 deambula, DISPARAR (3 balas, congela 4 s), BYPASS (3 usos, enfriamiento 1,5 s, reconstruye el laberinto) y ENCRYPT (1 uso, congela 5 s al agente más cercano). Si atrapan al héroe se reinicia con laberinto nuevo, intentos ilimitados. |
+| **Mecánica del Nivel 1** | El modo "armar lista de comandos y ejecutar" (puerta `decryptGate`, agentes con HP) fue reemplazado | **Arcade en tiempo real estilo Pac-Man**: 1 agente persigue por BFS (sin aviso emergente al ser atrapado), el 📞 deambula, DISPARAR (3 balas, congela 4 s), BYPASS (3 usos, enfriamiento 1,5 s, reconstruye el laberinto) y ENCRYPT (1 uso, congela 5 s al agente más cercano). Si atrapan al héroe se reinicia con laberinto nuevo, intentos ilimitados. |
 
 ---
 
@@ -92,25 +92,25 @@ Firebase se importa por ESM desde el CDN de gstatic (v10.7.1), como en el diseñ
 
 ### Fase 2 — Nivel 1: Matrix Protocol (FR-2) (L)
 - `generator.js`: laberinto 7×7 con muros aleatorios, reintentado hasta que todas las celdas abiertas
-  sean alcanzables (BFS); ubica el 📞 lejos del héroe y 2 agentes separados. `regenerateWalls()` para BYPASS.
+  sean alcanzables (BFS); ubica el 📞 y el agente (`AGENT_COUNT = 1`) lejos del héroe. `regenerateWalls()` para BYPASS.
 - `level1.js`: bucle `requestAnimationFrame` con pasos fijos por entidad (héroe 150 ms, agentes 300 ms,
-  📞 420 ms, proyectiles 70 ms); movimiento por flechas/WASD/D-pad; agentes que persiguen por BFS;
+  📞 420 ms, proyectiles 70 ms); movimiento por flechas/WASD/D-pad; agente que persigue por BFS;
   DISPARAR / BYPASS / ENCRYPT; captura → laberinto nuevo; llegar al 📞 → `level_1_completed: true`.
   El bucle se pausa fuera de la pantalla o con la pestaña oculta.
 - `digitalrain.js`: lluvia digital Matrix de fondo.
 - **Entregable:** un jugador alcanza el 📞 y se persiste su estado.
 
 ### Fase 3 — Sincronización y progresión de fases (FR-3, FR-4) (M)
-- `sync.js`: listener que calcula `level1Completed`/`level2Completed` y muestra barra `Completed: X / N`.
-- Pantalla 4 y 7: espera grupal ("Waiting… 7/10"), bloqueando reenvío.
-- Trigger de transición de Fase 1→2, con `current_phase` escrito **solo** por el dashboard vía `transaction()`.
-- Al completarse el Nivel 2 (todos `level_2_completed = true`), el juego **finaliza**: pantalla de victoria grupal. No hay Fase 3.
-- **Entregable:** al completar todos, todas las pantallas pasan de nivel sin recargar; al cerrar el Nivel 2, todas ven el final del juego.
+- `sync.js`: listener de la sala; `app.js` elige la pantalla según el progreso **propio** del jugador.
+- Al superar el Nivel 1, `completeLevel1()` (`room.js`) marca el nivel y asigna el juego del Nivel 2 en una transacción → el jugador pasa directo al Nivel 2.
+- Al superar el Nivel 2: pantalla de misión completada con contador del equipo en vivo. No hay Fase 3.
+- **Entregable:** cada jugador avanza de nivel sin recargar y sin esperar a nadie.
 
 ### Fase 4 — Nivel 2A: "I Shot The Serif" (M)
-- `distribute.js`: reparto por mitades (⌈N/2⌉ serif / ⌊N/2⌋ vector) con `transaction()`.
+- Reparto: autoasignación balanceada en `completeLevel1()` (ver Fase 3).
 - `serif.js`: grid de letras A–Z con fuentes serif/sans-serif reales, timer 30 s, +100 por acierto,
-  error "That's Sans Serif!" sin penalizar, explosión + vibración, **reintento automático** al agotarse el tiempo.
+  error "That's Sans Serif!" con contador `❌ n/2`: **al 2.º error se reinicia la ronda**; explosión + vibración,
+  **reintento automático** al agotarse el tiempo.
 - Éxito → `level_2_completed: true` + `level_2_score`.
 - **Entregable:** juego A jugable y persistido.
 
@@ -121,8 +121,8 @@ Firebase se importa por ESM desde el CDN de gstatic (v10.7.1), como en el diseñ
 - **Entregable:** juego B jugable y persistido.
 
 ### Fase 6 — Dashboard / proyector (M)
-- `dashboard.html`: barra de progreso grupal, lista de jugadores y su estado, control de inicio y avance de fase.
-- Es la **autoridad** que escribe `current_phase` y las asignaciones.
+- `dashboard.html`: progreso por nivel, lista de jugadores y su estado, inicio de partida y reinicio / vaciado de sala.
+- Ya no avanza fases ni asigna juegos (lo hace cada cliente).
 - **Entregable:** pantalla central proyectable.
 
 ### Fase 7 — Pulido, QR y pruebas (M)
@@ -145,11 +145,11 @@ Firebase se importa por ESM desde el CDN de gstatic (v10.7.1), como en el diseñ
 
 ## 5. Riesgos / puntos de atención
 
-- **Carreras de escritura** en `current_phase` y asignación → resolver con `transaction()` y un único escritor.
+- **Carreras de escritura** en la asignación del Nivel 2 → `transaction()` sobre `players` (dos jugadores que terminan a la vez se reintentan con datos frescos).
 - **Jugador que abandona** a mitad → definir regla: excluir desconectados del umbral para no bloquear la partida
   (usar `connected`).
 - **Generación del laberinto** → probar exhaustivamente que el laberinto siempre es conexo (también tras BYPASS).
-- **Dificultad del Nivel 1** → calibrar `AGENT_MS` / `HERO_MS` en vivo; hoy los agentes van a la mitad de velocidad del héroe.
+- **Dificultad del Nivel 1** → calibrar `AGENT_MS` / `HERO_MS` en vivo; hoy hay 1 agente a la mitad de velocidad del héroe.
 - **Fuentes del Nivel 2** → si no se cargan las fuentes, la distinción serif/sans-serif se vuelve ambigua;
   empaquetar fuentes o usar familias web-safe garantizadas.
 - **Reloj del timer** → basarlo en tiempo local del dispositivo, no en Firebase, para evitar desfases.

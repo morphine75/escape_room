@@ -3,7 +3,12 @@
     "rooms": {
       "$roomId": {
         ".read": true,
-        ".write": true
+        ".write": true,
+        "players": {
+          "$playerId": {
+            ".validate": "newData.hasChild('name') && newData.child('name').isString() && newData.child('name').val().length > 0"
+          }
+        }
       }
     }
   }

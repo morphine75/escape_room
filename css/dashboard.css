@@ -23,3 +23,5 @@
 .room-item .row { gap: 8px; }
 .room-item .btn { min-height: 40px; padding: 8px 12px; }
 .room-empty { color: var(--muted); font-size: 0.9rem; }
+.roster-del { min-height: 34px; padding: 4px 10px; }
+.roster tr.ghost td { color: var(--warning); }

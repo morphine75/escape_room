@@ -5,7 +5,7 @@
 import { isConfigured } from "./firebase.js";
 import { subscribeRoom, activePlayers, everyoneCompleted } from "./sync.js";
 import {
-  joinRoom, markLevelComplete, completeLevel1, markConnected, normalizeRoomId
+  joinRoom, markLevelComplete, completeLevel1, trackPresence, stopPresence, normalizeRoomId
 } from "./room.js";
 import { loadSession, clearSession } from "./session.js";
 import { showScreen, toast, $ } from "./ui.js";
@@ -28,6 +28,7 @@ const state = {
   level2NeedsRestart: false,
   gameStartedSeen: false,
   assigning: false,
+  presenceFor: null, // "roomId/playerId" whose presence is currently armed
   unsub: null
 };
 
@@ -43,7 +44,6 @@ function boot() {
     state.roomId = session.roomId;
     state.playerId = session.playerId;
     state.name = session.name;
-    markConnected(state.roomId, state.playerId).catch(() => {});
     startSubscription();
   } else {
     showScreen("screen-register");
@@ -100,6 +100,8 @@ function startSubscription() {
 
 function onData(data) {
   if (!data) {
+    stopPresence(state.roomId, state.playerId).catch(() => {});
+    state.presenceFor = null;
     clearSession();
     toast("La sala no existe o fue cerrada", "error");
     showScreen("screen-register");
@@ -109,10 +111,22 @@ function onData(data) {
 
   const me = (data.players && data.players[state.playerId]) || null;
   if (!me) {
+    // Removed by the coordinator: cancel the pending onDisconnect write so it
+    // cannot re-create this player as a nameless record.
+    stopPresence(state.roomId, state.playerId).catch(() => {});
+    state.presenceFor = null;
     clearSession();
     toast("Tu registro ya no está en la sala", "error");
     showScreen("screen-register");
     return;
+  }
+
+  // Arm presence once per session, and again if a network drop already fired
+  // onDisconnect (connected=false) while this tab kept running.
+  const presenceKey = state.roomId + "/" + state.playerId;
+  if (state.presenceFor !== presenceKey || me.connected === false) {
+    state.presenceFor = presenceKey;
+    trackPresence(state.roomId, state.playerId).catch(() => {});
   }
 
   updateHeader(me);

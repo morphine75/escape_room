@@ -1,7 +1,7 @@
 // Room + player data operations against Firebase Realtime Database.
 import { db } from "./firebase.js";
 import {
-  ref, set, get, update, onDisconnect, serverTimestamp, runTransaction
+  ref, set, get, update, remove, onDisconnect, serverTimestamp, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { randomId, saveSession } from "./session.js";
 
@@ -89,18 +89,32 @@ export async function joinRoom(roomId, rawName) {
     last_changed: serverTimestamp()
   });
 
-  // Presence: flag the player as disconnected if the socket drops.
-  onDisconnect(ref(db, `rooms/${roomId}/players/${playerId}/connected`)).set(false);
-
+  // Presence (connected + onDisconnect) is armed by the app once the live room
+  // data confirms this player exists — see trackPresence().
   saveSession({ roomId, playerId, name });
   return { ok: true, playerId };
 }
 
-export async function markConnected(roomId, playerId) {
-  await update(ref(db, `rooms/${roomId}/players/${playerId}`), {
-    connected: true,
-    last_changed: serverTimestamp()
-  });
+// Presence: marks the player connected and arms onDisconnect -> connected=false.
+// Only call it when the live room data shows the player exists: writing to a
+// removed player would re-create it as a nameless "ghost" record (the
+// database rules also reject player records without a name).
+export async function trackPresence(roomId, playerId) {
+  const playerRef = ref(db, `rooms/${roomId}/players/${playerId}`);
+  await onDisconnect(ref(db, `rooms/${roomId}/players/${playerId}/connected`)).set(false);
+  await update(playerRef, { connected: true, last_changed: serverTimestamp() });
+}
+
+// Cancels the pending onDisconnect write. Used when the player was removed from
+// the room, so closing the tab later does not re-create a ghost record.
+export async function stopPresence(roomId, playerId) {
+  await onDisconnect(ref(db, `rooms/${roomId}/players/${playerId}/connected`)).cancel();
+}
+
+// Coordinator: removes one player from the room. Their device returns to the
+// registration screen.
+export async function removePlayer(roomId, playerId) {
+  await remove(ref(db, `rooms/${roomId}/players/${playerId}`));
 }
 
 // FR-2.3 / 7.3.3: persist an individual level completion.

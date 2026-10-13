@@ -56,6 +56,10 @@ export const firebaseConfig = {
 but insecure. Paste it into **Realtime Database → Rules** for a quick start, or tighten it
 (e.g. restrict by room) before exposing the app publicly.
 
+It also **rejects player records without a `name`**, so a stray write to a removed player
+(e.g. a delayed `onDisconnect`) can never re-create it as a nameless "ghost" player.
+**Re-publish the rules in the Firebase console whenever this file changes.**
+
 ## 4. Run locally
 
 ES modules require an HTTP server (opening the file directly with `file://` will not work).
@@ -114,6 +118,10 @@ above the board (no pop-up notifications over the controls).
 - **🗑️ Eliminar sala**: available from the room list or inside a room, only when the room
   has **no players** (use *Vaciar sala* first). The code stays filled in, so **Crear sala**
   re-creates it with the same code.
+
+- **🗑️ per player** (roster): removes one player from the room; their phone returns to the
+  registration screen. Nameless records are flagged **⚠️ sin nombre** so stray entries can be
+  cleaned up. The roster also shows each player's connection (🟢 / ⚫).
 
 The setup screen lists every existing room (players and status) with *Abrir* and 🗑️.
 Both reset actions ask for confirmation. When the room returns to the lobby, the

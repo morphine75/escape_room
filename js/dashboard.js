@@ -6,7 +6,7 @@ import { db, isConfigured } from "./firebase.js";
 import {
   ref, update, get, remove, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-import { createRoom, deleteRoomIfEmpty, normalizeRoomId } from "./room.js";
+import { createRoom, deleteRoomIfEmpty, removePlayer, normalizeRoomId } from "./room.js";
 import { subscribeRoom, subscribeRooms, everyoneCompleted } from "./sync.js";
 import { saveHostRoom, loadHostRoom, clearHostRoom } from "./session.js";
 import { showScreen, toast, $ } from "./ui.js";
@@ -218,17 +218,23 @@ function render(data) {
   deleteBtn.disabled = total > 0;
   deleteBtn.title = total > 0 ? "Vaciá la sala antes de eliminarla" : "";
 
-  renderRoster(list);
+  renderRoster(players);
 }
 
-function renderRoster(list) {
+function renderRoster(players) {
   const tbody = $("#dash-roster");
   tbody.innerHTML = "";
-  const sorted = [...list].sort((a, b) => (a.joined_at || 0) - (b.joined_at || 0));
+  const sorted = Object.entries(players).sort(
+    ([, a], [, b]) => (a.joined_at || 0) - (b.joined_at || 0)
+  );
 
-  sorted.forEach((p, i) => {
+  sorted.forEach(([pid, p], i) => {
     const tr = document.createElement("tr");
     if (p.connected === false) tr.classList.add("offline");
+    // A record without a name never went through registration (e.g. a stray
+    // write to a removed player): flag it so the coordinator can delete it.
+    const ghost = !p.name;
+    if (ghost) tr.classList.add("ghost");
 
     let detail = "";
     if (p.level_2_game === "serif") detail = `serif · ${p.level_2_score || 0} pts`;
@@ -236,13 +242,32 @@ function renderRoster(list) {
 
     tr.innerHTML = `
       <td>${i + 1}</td>
-      <td>${escapeHtml(p.name || "")}</td>
+      <td>${ghost ? "⚠️ <em>sin nombre</em>" : escapeHtml(p.name)}</td>
+      <td title="${p.connected === false ? "Desconectado" : "Conectado"}">${p.connected === false ? "⚫" : "🟢"}</td>
       <td>${p.level_1_completed ? "✅" : "⏳"}</td>
       <td>${p.level_2_completed ? "✅" : "⏳"}</td>
       <td>${p.level_2_game || "—"}</td>
-      <td>${detail || "—"}</td>`;
+      <td>${detail || "—"}</td>
+      <td><button class="btn danger roster-del" title="Eliminar jugador">🗑️</button></td>`;
+    tr.querySelector(".roster-del").addEventListener("click", () =>
+      deletePlayer(pid, ghost ? "(sin nombre)" : p.name)
+    );
     tbody.appendChild(tr);
   });
+}
+
+async function deletePlayer(pid, label) {
+  if (!state.roomId) return;
+  const ok = window.confirm(
+    `¿Eliminar al jugador ${label} de la sala ${state.roomId}?\n\nSu celular vuelve a la pantalla de registro y puede unirse de nuevo mientras la partida no haya empezado.`
+  );
+  if (!ok) return;
+  try {
+    await removePlayer(state.roomId, pid);
+    toast(`Jugador ${label} eliminado`, "success");
+  } catch (err) {
+    toast("Error al eliminar el jugador: " + err.message, "error");
+  }
 }
 
 function escapeHtml(str) {

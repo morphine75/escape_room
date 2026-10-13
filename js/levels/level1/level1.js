@@ -20,7 +20,7 @@ import { $, vibrate, toast } from "../../ui.js";
 
 // --- Tuning ------------------------------------------------------------------
 const HERO_MS = 150; // time per cell for the hero
-const AGENT_MS = 300; // agents are slightly slower than the hero
+const AGENT_MS = 300; // agents move at half the hero's speed (gives room to react)
 const PHONE_MS = 420; // phone wander interval
 const PROJ_MS = 70; // projectile step interval
 const PHONE_MOVE_CHANCE = 0.6; // phone sometimes stays put (catchable)
@@ -72,8 +72,7 @@ export function initLevel1({ onComplete } = {}) {
     encryptUses: ENCRYPT_USES,
     lastBypassAt: -Infinity,
     solved: false,
-    pendingReset: false,
-    frozenAt: 0
+    pendingReset: false
   };
 
   let raf = 0;
@@ -193,10 +192,6 @@ export function initLevel1({ onComplete } = {}) {
   function canMove(from, dir) {
     const n = { x: from.x + dir.x, y: from.y + dir.y };
     return inBounds(n) && !state.walls[n.y][n.x];
-  }
-
-  function cellHas(cell, list) {
-    return list.some((c) => c.x === cell.x && c.y === cell.y);
   }
 
   function stepHero() {
@@ -440,8 +435,6 @@ export function initLevel1({ onComplete } = {}) {
     last = t;
     if (dt < 0) dt = 0;
     if (dt > 150) dt = 150; // clamp after the tab was throttled
-
-    state.frozenAt = t;
 
     heroAcc += dt;
     while (heroAcc >= HERO_MS && !state.solved && !state.pendingReset) {

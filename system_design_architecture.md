@@ -11,7 +11,7 @@
 
 | Level | Name | Type |
 |-------|------|------|
-| 1 | Matrix Protocol (The Hacker Escape) | Algorithmic logic / maze |
+| 1 | Matrix Protocol (The Hacker Escape) | Real-time maze arcade (Pac-Man style) |
 | 2 | Typography & Vector Design (two mini-games in parallel) | Typographic agility / curve adjustment |
 | 3 | Not implemented — the game concludes after Level 2 | — |
 
@@ -97,9 +97,9 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
 [ Screen 2: Waiting Lobby ] ─── (Real-time listener counts connected players)
          │
          ▼ (required_players reached)
-[ Screen 3: Level 1 - Matrix Protocol ] ─── (Generates randomized grid + local logic state)
-         │
-         ▼ (Player runs their exploit and reaches the phone booth 📞)
+[ Screen 3: Level 1 - Matrix Protocol ] ─── (Generates a local 7×7 maze + real-time game loop)
+         │      ↺ (Caught by an Agent → new maze, retry; unlimited attempts)
+         ▼ (Player intercepts the wandering phone booth 📞)
 [ Screen 4: Individual Completion / Group Wait ]
          │
          ▼ (Listener detects ALL players level_1_completed = true)
@@ -125,97 +125,116 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
 
 ### 5.1. Narrative & Aesthetics
 
-* **Concept:** Participants are trapped inside the Matrix simulation. To free the whole team (10 participants), each one must navigate their personal terminal, dodge the Agents/Firewalls, and run the escape script at the phone booth.
+* **Concept:** Participants are trapped inside the Matrix simulation. To free the whole team (10 participants), each one must move through their personal maze in real time, dodge the chasing Agents, and reach the (moving) phone booth to escape.
 * **Color Palette:**
   * Background: `#0d1117` / `#000000` (deep black).
   * Digital rain and accents: `#00ff66` / `#00ff41` (Matrix neon green).
   * Alerts / errors: `#ff0055` (neon red) / `#ffb700` (amber).
   * Secondary text: `#a3b8cc` (cool gray).
 * **Typography:** Monospace (`Courier New`, `Consolas`, or `Fira Code`).
-* **Ambience — animated "digital rain" (implemented):** an animated canvas (`<canvas id="digital-rain">`, logic in `js/digitalrain.js`) falls behind the Level 1 screen. Columns of katakana / Latin / binary glyphs in Matrix green descend, each led by a bright, glowing **"shining" head glyph** with a fading trail. It is drawn at ~50 % opacity so the terminal text stays legible, runs only while the Level 1 screen is visible **and** the tab is in the foreground (paused and cleared otherwise), and falls back to a single static frame when the user prefers reduced motion.
+* **Ambience — animated "digital rain" (implemented):** an animated canvas (`<canvas id="digital-rain">`, logic in `js/digitalrain.js`) falls behind the Level 1 screen. Columns of katakana / Latin / binary glyphs in Matrix green descend, each led by a bright, glowing **"shining" head glyph** with a fading trail. It is drawn at ~50 % opacity so the board and controls stay legible, runs only while the Level 1 screen is visible **and** the tab is in the foreground (paused and cleared otherwise), and falls back to a single static frame when the user prefers reduced motion.
 
 ### 5.2. Mobile Layout (Portrait / 100vh)
 
 ```text
 
 +------------------------------------+
-| 😎 MATRIX OS v1.0 | 👤 Neo_404 (4/10 Ready) | <-- Sticky Header
+| 😎 MATRIX OS v1.0                  | <-- Header
+| 🎯 Intento 3    Llegá al 📞 y ...   | <-- HUD: attempt counter + status line
 +------------------------------------+
-|          Neo_404                   |
-|      HACKERS UNIDOS: 4 de 10       |
+|  [😎][  ][▓▓][  ][  ][  ][  ]      |
+|  [  ][▓▓][  ][  ][▓▓][🕵🏻][  ]      | <-- ZONE 1: 7×7 maze board
+|  [  ][  ][  ][▓▓][  ][  ][  ]      |     (open cells + walls ▓▓; tokens
+|  [▓▓][  ][•→][  ][  ][▓▓][  ]      |      float above the grid: hero 😎,
+|  [  ][  ][▓▓][  ][🕵🏻❄][  ][📞]      |      2 Agents 🕵🏻, phone 📞,
+|  [  ][▓▓][  ][  ][  ][▓▓][  ]      |      projectiles •)
+|  [  ][  ][  ][▓▓][  ][  ][  ]      |
 +------------------------------------+
-|   [😎]  [0 1]  [🕶️]  [0 1]  [🕶️]   |
-|   [1 1]  [1 1]  [1 1]  [1 1]  [1 1] | <-- ZONE 1: 2D Matrix Grid Canvas
-|   [0 1]  [🕶️]  [🕶️]  [🔴]  [REVELAR]|     (Digital Rain + Binary Cells +
-|   [1 1]  [1 1]  [1 1]  [   ]  AGENTES|     Hero 😎 / Agents 🕶️ & Red Pills 🔴)
-|   [🕶️]  [0 1]  [0 1]  [0 1]  [📞]   |
-|   [1 1]  [1 1]  [1 1]  [1 1]  [1 1] |
+|             [ ⬆️ ]                 |
+|       [ ⬅️ ]        [ ➡️ ]          | <-- ZONE 2: touch D-pad
+|             [ ⬇️ ]                 |
 +------------------------------------+
-| TERMINAL DE SCRIPT:                |
-| > bypassFirewall(0101) [❌]        | <-- ZONE 2: Command Sequence
-| > moverDerecha(2)      [❌]        |     (Interactive Script List)
-| > Add Comando...                   |
-+------------------------------------+
-| BOTONERA TOUCH (HACKER)            |
-| [⬇️ BAJAR] [⬆️ SUBIR] [⬅️ IZQ] [➡️ DER] | <-- ZONE 3: Directional Controls
-| [⚔️ BYPASS]  [🗝️ DESCRYPT]          | <-- Action & Decryption Trigger
-|------------------------------------|
-|      [ [ ⚡ EJECUTAR EXPLOIT ] ]   | <-- Main Execution Action Button
+| [        🔫 DISPARAR  (3)        ] | <-- ZONE 3: actions (remaining uses)
+| [ ⚔️ BYPASS (3) ] [ 🧊 ENCRYPT (1) ] |
+| Flechas/WASD · ESPACIO · B · E     | <-- Keyboard help
 +------------------------------------+
 
 ```
 
+The whole Matrix digital rain keeps running behind the board (section 5.1).
+
 ### 5.3. Level 1 Game Mechanics
 
-1. **Matrix components (procedural 5×5 maze — `GRID_SIZE = 5`, configurable):**
-   * **Hacker (`😎`):** Starting position `(0, 0)`.
-   * **Data cells (`01`, `10`, `00`):** Walkable tiles (binary decoration).
-   * **Walls / static firewalls (`🧱`):** Impassable obstacles.
-   * **Agents / active firewalls (`🕵🏻`):** Block passage; neutralized with `bypassFirewall(power)`, where the power must match the Agent's defense value (HP).
-   * **Encrypted gate (`🚪`):** Requires solving a small logic puzzle in a modal (`decryptGate`).
-   * **Phone booth (`📞`):** Final goal. Reaching it runs the escape script.
+Level 1 is a **real-time arcade** in the spirit of Pac-Man (it replaced the earlier "build a command list and run it" design; see section 9 #11). Implementation: `js/levels/level1/generator.js` (maze) and `js/levels/level1/level1.js` (engine).
 
-2. **Command blocks (zero-typing input):**
-   * **Movement:** `moveUp(steps)`, `moveDown(steps)`, `moveLeft(steps)`, `moveRight(steps)`
-   * **Action / Combat:** `bypassFirewall(power)` (must equal the adjacent Agent's HP)
-   * **Logic / Unlock:** `decryptGate(key)` (opens the logic puzzle modal)
+1. **Board components (procedural 7×7 maze — `GRID_SIZE = 7`):**
+   * **Hacker (`😎`):** starts at `(0, 0)`, moved by the player.
+   * **Open cells / walls (`▓`):** walls are impassable for every token and for projectiles.
+   * **Agents (`🕵🏻`) ×2:** chase the hacker in real time. Each step they pick the neighbouring cell with the shortest BFS distance to the hacker, never reverse direction (unless in a dead end), avoid stepping onto the other agent, and break ties randomly.
+   * **Phone booth (`📞`):** the goal. It **wanders randomly** (moves on ~60 % of its ticks, so it sometimes stays still and can be caught) and never steps onto the hacker.
+   * **Projectiles (`•`):** fired by the hacker; they travel in a straight line until they hit a wall, leave the grid or hit an agent.
 
-3. **Execution & debugging loop:**
-   * The player taps direction and action buttons to build an ordered command list in the **Script Terminal**.
-   * Each command can be removed with `[❌]`.
-   * The player presses **[ ⚡ RUN EXPLOIT ]**.
-   * The sprite executes the steps sequentially, with animation.
-   * **Success:** The hacker reaches `📞` → `level_1_completed: true` is written to Firebase → waiting screen is shown ("Waiting for the rest of the team… 7/10").
-   * **Failure (bug):** The hacker hits a wall or fails a challenge → the failing command is highlighted in neon red (`#ff0055`) for targeted debugging, and the hacker returns to `(0, 0)`.
+2. **Controls (zero typing):**
+   * **Movement:** arrow keys / WASD or the on-screen D-pad. It uses a persistent *desired direction* (Pac-Man style): the hacker keeps moving and turns as soon as the requested direction is open.
+   * **🔫 DISPARAR** (Space / `F`) — **3 rounds** per attempt. Fires a projectile in the facing direction (right if the hacker has not moved yet). An agent hit is **frozen for 4 s**.
+   * **⚔️ BYPASS** (`B`) — **3 uses** per attempt, **1.5 s cooldown**. Rebuilds the maze walls live (keeping the hacker's and agents' cells open and the maze fully connected) and relocates the phone to a far reachable cell.
+   * **🧊 ENCRYPT** (`E`) — **1 use** per attempt. Freezes the nearest active agent (by BFS distance) for **5 s**.
+   * Frozen agents are drawn in blue with a `❄` badge and cannot catch the hacker.
 
-4. **Procedural generation:**
-   * Each client generates its own grid locally with random walls, **guaranteeing at least one valid path** (e.g., carve a path first, then place walls only outside it).
-   * Every student gets a unique puzzle and server load stays at zero.
+3. **Timing (tunable constants in `level1.js`):**
 
-> **Resolved (grid size):** the maze is **5×5**, exposed as a configurable `GRID_SIZE` constant. `REQUIREMENTS.md` (FR-2.1) specifies 4×4; the discrepancy is intentional and the design prevails.
+   | Constant | Value | Meaning |
+   |----------|-------|---------|
+   | `HERO_MS` | 150 ms | time per cell for the hacker |
+   | `AGENT_MS` | 300 ms | time per cell for each agent (half the hacker's speed) |
+   | `PHONE_MS` | 420 ms | phone wander tick (`PHONE_MOVE_CHANCE = 0.6`) |
+   | `PROJ_MS` | 70 ms | projectile step |
+   | `FREEZE_SHOT_MS` / `FREEZE_ENCRYPT_MS` | 4000 / 5000 ms | freeze durations |
 
-### 5.4. Grid Generation Example (pseudocode)
+   The game loop runs on `requestAnimationFrame` with fixed-step accumulators per entity (frame delta clamped to 150 ms). It **only runs while the Level 1 screen is visible and the tab is in the foreground** (`MutationObserver` on `body[data-screen]` + `visibilitychange`).
+
+4. **Win / lose:**
+   * **Success:** the hacker reaches the `📞` cell → the loop stops, `onComplete()` writes `level_1_completed: true` to Firebase (`markLevelComplete`) → waiting screen ("Waiting for the rest of the team… 7/10").
+   * **Caught:** an active (not frozen) agent shares the hacker's cell → the attempt counter increases and the level **restarts with a brand-new maze**, positions and power-ups. Attempts are unlimited, so no player blocks the group.
+
+5. **Procedural generation:**
+   * Each client generates its own maze locally (zero server load) with random walls, retried until the maze is **fully connected** — every open cell is reachable from the start — so the agents can always chase and the phone is always reachable.
+   * The phone spawns among the farthest reachable cells; the two agents spawn far from the hacker and spread apart.
+
+> **Resolved (grid size):** the maze is **7×7** (`GRID_SIZE`). `REQUIREMENTS.md` (FR-2.1) specifies 4×4; the discrepancy is intentional and the design prevails (see section 9 #1 and #11).
+
+### 5.4. Maze Generation (pseudocode)
 
 ```javascript
-function generateGrid(size = 5) {
-  const grid = Array.from({ length: size }, () => Array(size).fill("data"));
-  const path = generateRandomPath(size); // from (0,0) to (size-1, size-1)
+const GRID_SIZE = 7;
+const WALL_DENSITY = 0.26;   // chance of a wall per cell
+const MIN_OPEN_RATIO = 0.62; // keep at least 62 % of cells open
+const CONNECT_ATTEMPTS = 500;
 
-  // Place walls only outside the guaranteed path
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      if (!path.some(c => c.x === x && c.y === y) && Math.random() < 0.3) {
-        grid[y][x] = "wall";
-      }
-    }
+// Random walls, retried until every open cell is reachable from keepOpen[0].
+function makeSolvableWalls(size, keepOpen) {
+  for (let attempt = 0; attempt < CONNECT_ATTEMPTS; attempt++) {
+    const walls = randomGrid(size, WALL_DENSITY);
+    keepOpen.forEach(c => (walls[c.y][c.x] = false));
+    if (countOpen(walls) < Math.ceil(size * size * MIN_OPEN_RATIO)) continue;
+    if (!allReachable(walls, keepOpen[0])) continue; // BFS flood fill
+    return walls;
   }
-
-  // Place an Agent and a gate on the path (not on start/end)
-  grid[path[2].y][path[2].x] = { type: "agent", hp: 2 + Math.floor(Math.random() * 3) };
-  grid[path[path.length - 2].y][path[path.length - 2].x] = "gate";
-  grid[size - 1][size - 1] = "booth";
-  return grid;
+  return emptyWalls(size); // fallback: fully open board
 }
+
+function generateLevel1(size = GRID_SIZE) {
+  const start = { x: 0, y: 0 };
+  const walls = makeSolvableWalls(size, [start]);
+  const dist = bfsDistances(walls, size, start);
+  const phone = pickAmongFarthest(reachableCells, dist, 0.3);  // top 30 % farthest
+  const agentA = randomCell(cellsWithDist(dist, ">= 4"));      // far from the hero
+  const agentB = farthestFrom(agentA);                         // spread apart
+  return { size, walls, hero: start, phone, agents: [agentA, agentB] };
+}
+
+// BYPASS reuses makeSolvableWalls, keeping the hero's and agents' cells open.
+const regenerateWalls = (size, keepOpen) => makeSolvableWalls(size, keepOpen);
 ```
 
 ### 5.5. UI Design System Guidelines
@@ -223,7 +242,7 @@ function generateGrid(size = 5) {
     * Background: Pure Black (`#000000`) & Dark Slate (`#0d1117`)
     * Primary Accent: Matrix Green (`#00ff66` / `#00ff41`)
     * Alerts / Errors: Neon Red (`#ff0055`)
-    * Interactive Items / Decisions: Neon Red Pill (`#ff2e4c`) & Warning Amber (`#ffb700`)
+    * Agents / BYPASS: Warning Amber (`#ffb700`); DISPARAR / projectiles: Neon Red (`#ff0055`); ENCRYPT / frozen agents: Ice Blue (`#58c8ff`)
   * **Typography:** Monospace (`Courier New`, `Consolas`, `Fira Code`).
   * **Touch Targets:** Minimum $44 \times 44\text{px}$ touch targets across all mobile controls.
 
@@ -428,7 +447,7 @@ function calculatePrecision(currentNodePos, targetNodePos, tolerance) {
 
 * **Colors:** see section 5.1.
 * **Typography:** Monospace.
-* **Effects:** Animated **digital rain** canvas background (see sections 5.1 and 9 #10), terminal-style text, blinking `_` cursor, neon-green glow on active elements.
+* **Effects:** Animated **digital rain** canvas background (see sections 5.1 and 9 #10), neon-green glow on the board and the hacker, pulsing phone booth, smooth token movement between cells (CSS `transform` transitions), blue `❄` state for frozen agents.
 
 ### 8.2. Level 2 and the rest of the app
 
@@ -447,9 +466,9 @@ function calculatePrecision(currentNodePos, targetNodePos, tolerance) {
 
 * **Touch targets:** Minimum $44 \times 44\text{px}$.
 * **Components:** Responsive cards, touchable directional controls, dynamic progress bars, draggable vector nodes.
-* **Haptic feedback:** Short vibration on serif elimination (Game A); gentle pulse on node drag (Game B); brief vibration on exploit run and on failure (Level 1).
+* **Haptic feedback:** Short vibration on serif elimination (Game A); gentle pulse on node drag (Game B); short vibrations on firing, hitting an agent, BYPASS, ENCRYPT, being caught and reaching the phone (Level 1).
 * **Animations:**
-  * Step-by-step hacker movement and a "hack" effect when an Agent is neutralized (Level 1).
+  * Smooth cell-to-cell movement of every token and a frozen (`❄`) effect when an Agent is neutralized (Level 1).
   * Letter explosion on correct taps (Game A).
   * Node "snap-to-target" animation when precision ≥ 85% (Game B).
   * Success glow/pulse when each objective is met.
@@ -474,7 +493,7 @@ Consolidated record of the design points that were previously left open, togethe
 
 | # | Topic | Situation | Resolution |
 |---|-------|-----------|------------|
-| 1 | **Grid size** | `REQUIREMENTS.md` says 4×4 (FR-2.1); the design says 5×5 / 6×6 | Use **5×5**, exposed as a configurable `GRID_SIZE` constant. The discrepancy with FR-2.1 is documented here; the design prevails. |
+| 1 | **Grid size** | `REQUIREMENTS.md` says 4×4 (FR-2.1); the design originally said 5×5 / 6×6 | Use **7×7** (enlarged from 5×5 with the real-time rework, #11), exposed as the `GRID_SIZE` constant. The discrepancy with FR-2.1 is documented here; the design prevails. |
 | 2 | **"I Shot The Serif" timeout** | Not specified | On timeout, **automatically retry with a new grid**. No penalty; the player never blocks the group. |
 | 3 | **"Shape Type" tolerance** | `tolerance = 20 px` → 85% ≈ 3 px (unplayable on touch) | Scale the tolerance to the canvas: success radius ≈ **8% of the shorter side** (≈ 40–60 px on mobile). |
 | 4 | **Who writes `current_phase`** | Only "recommended" a single writer | The **coordinator dashboard is the sole authority** and writes it inside a `transaction()`. All other clients only react. |
@@ -484,3 +503,4 @@ Consolidated record of the design points that were previously left open, togethe
 | 8 | **Reset / replay between groups** | Not defined; a finished room could not be reused for the next group | The dashboard offers **Restart round** (reset progress, keep players) and **Wipe room** (remove players), both returning to the lobby. Player progress and `current_phase` are reset transactionally; players' tabs return to the lobby and levels reinitialise without a page reload. |
 | 9 | **Live-session deadlock** | A disconnected player can never complete a level, which would block the automatic phase advance | The dashboard exposes a **Force phase advance** action (transactional) so the facilitator can unblock the room. |
 | 10 | **Level 1 ambience** | A Matrix-styled background was wanted, but a static page feels flat | An animated **"digital rain"** canvas (`js/digitalrain.js`) renders falling katakana / Latin / binary glyphs with a shining head glyph and fading trail behind the Level 1 screen. It runs only while the screen is visible and the tab is foregrounded, sits at ~50 % opacity for readability, and shows a single static frame under `prefers-reduced-motion`. |
+| 11 | **Level 1 gameplay** | The original "build a command list, then run the exploit" mode (5×5, agent HP, `decryptGate` puzzle) was replaced by a real-time mode; FR-2.2 asks for basic algorithmic logic | Rebuilt as a **real-time maze arcade** (Pac-Man style) on a 7×7 maze: 2 agents chase via BFS, the phone wanders, **DISPARAR** (3 rounds, 4 s freeze), **BYPASS** (3 uses, 1.5 s cooldown, live maze rebuild) and **ENCRYPT** (1 use, 5 s freeze of the nearest agent). Being caught restarts with a new maze, unlimited attempts. Agents move at half the hacker's speed (`AGENT_MS = 300`). Logic is exercised through route planning and resource management instead of command sequencing; the design prevails over FR-2.2. |

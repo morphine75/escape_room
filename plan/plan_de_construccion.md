@@ -2,6 +2,7 @@
 
 > Documento derivado de `AGENTS.md`, `REQUIREMENTS.md` y `DESIGN.md`.
 > Estado del repo al redactar: solo los tres `.md`, sin código.
+> **Actualizado:** el Nivel 1 se reconstruyó como arcade en tiempo real (decisión #11 de `system_design_architecture.md` §9) y la estructura de archivos refleja el código actual.
 
 ---
 
@@ -11,51 +12,50 @@ Los documentos dejan puntos abiertos. Estas son las resoluciones adoptadas:
 
 | Tema | Situación | Resolución |
 |---|---|---|
-| **Tamaño del grid** | REQUIREMENTS dice 4×4 (FR-2.1); DESIGN dice 5×5/6×6 | Usar **5×5**, con constante `GRID_SIZE` configurable. La discrepancia con FR-2.1 queda documentada (el diseño prevalece sobre la spec). |
+| **Tamaño del grid** | REQUIREMENTS dice 4×4 (FR-2.1); DESIGN dice 5×5/6×6 | Usar **7×7** (antes 5×5; se amplió con el rework en tiempo real), constante `GRID_SIZE`. La discrepancia con FR-2.1 queda documentada (el diseño prevalece sobre la spec). |
 | **Timeout de "I Shot The Serif"** | El diseño no lo define | **Reintento automático**: al agotarse el tiempo se genera un grid nuevo y se reinicia la ronda, sin penalización. Nunca bloquea al grupo. |
 | **Tolerancia de "Shape Type"** | `tolerance = 20 px` ⇒ 85 % ≈ 3 px (inviable en táctil) | Escalar la tolerancia al canvas: **radio de acierto ≈ 8 % del lado menor** (~40–60 px en móvil). |
 | **Quién escribe `current_phase`** | El diseño solo "recomienda" un único escritor | **El dashboard/coordinador** es la única autoridad; escribe con `transaction()` para evitar carreras. Los demás clientes solo reaccionan al cambio. |
 | **Asignación Nivel 2** | "El coordinador define N al desbloquear" | El coordinador asigna `serif`/`vector` con `transaction()` sobre la lista de `playerId` ordenada: primera mitad `serif`, segunda `vector`. |
 | **Fase 3** | Sin definir | **No se implementa mecánica.** El juego concluye al terminar la Fase 2: tras completar el Nivel 2 el juego finaliza con la pantalla de victoria grupal. |
 | **Presencia / desconexión** | NFR-4 | `onDisconnect()` de Firebase marca jugadores desconectados; `localStorage` reanuda la sesión tras un refresh. |
+| **Mecánica del Nivel 1** | El modo "armar lista de comandos y ejecutar" (puerta `decryptGate`, agentes con HP) fue reemplazado | **Arcade en tiempo real estilo Pac-Man**: 2 agentes persiguen por BFS, el 📞 deambula, DISPARAR (3 balas, congela 4 s), BYPASS (3 usos, enfriamiento 1,5 s, reconstruye el laberinto) y ENCRYPT (1 uso, congela 5 s al agente más cercano). Si atrapan al héroe se reinicia con laberinto nuevo, intentos ilimitados. |
 
 ---
 
-## 1. Estructura de archivos propuesta
+## 1. Estructura de archivos (actual)
 
 ```
 escape_room/
-├── index.html            # Entrada: elegir rol (jugador) / registrar nombre
+├── index.html            # App del jugador: registro → lobby → Nivel 1 → espera → Nivel 2 → victoria
 ├── dashboard.html        # Pantalla del coordinador / proyector
+├── database.rules.json   # Reglas de Firebase
 ├── css/
-│   ├── base.css          # reset, variables CSS, tipografía, toasts
-│   ├── lobby.css
-│   ├── level1.css        # tema Matrix (negro + verde neón)
+│   ├── base.css          # reset, variables CSS, tipografía, toasts, lobby
+│   ├── level1.css        # tema Matrix (negro + verde neón), tablero y controles
 │   ├── level2.css        # tema navy/electric blue
 │   └── dashboard.css
 ├── js/
-│   ├── firebase-config.js    # init firebase app + db
+│   ├── firebase-config.js    # credenciales del proyecto Firebase
+│   ├── firebase.js           # init del SDK
 │   ├── session.js            # roomId/playerId + localStorage + reanudar
-│   ├── ui.js                 # toasts, transiciones, haptics, helpers
-│   ├── room.js               # crear/unirse a sala, validar nombre único
-│   ├── lobby.js              # contador Joined X/N en vivo
-│   ├── sync.js               # listener de sala + triggers de fase
-│   ├── levels/
-│   │   ├── level1/
-│   │   │   ├── generator.js  # grid procedural con camino garantizado
-│   │   │   ├── commands.js   # panel táctil → lista de comandos
-│   │   │   ├── engine.js     # ejecución paso a paso + validación
-│   │   │   ├── gate.js       # modal decryptGate (puzzle lógico)
-│   │   │   └── render.js     # pintar grid, animaciones, resaltado de error
-│   │   └── level2/
-│   │       ├── distribute.js # reparto serif/vector
-│   │       ├── serif.js      # "I Shot The Serif"
-│   │       └── vector.js     # "Shape Type" (canvas + Bézier)
-│   ├── dashboard.js          # barra de progreso grupal + control de fases
-│   └── qr.js                 # (opcional) generar/leer QR entre estaciones
-└── assets/
-    └── fonts/                # serif + sans-serif para Nivel 2
+│   ├── ui.js                 # toasts, pantallas, haptics, helpers
+│   ├── room.js               # unirse a sala, validar nombre, marcar niveles completos
+│   ├── sync.js               # listeners de sala + triggers de fase
+│   ├── app.js                # controlador del jugador
+│   ├── dashboard.js          # coordinador: progreso, inicio, avance de fase, asignación Nivel 2, reset
+│   ├── digitalrain.js        # canvas "digital rain" detrás del Nivel 1
+│   └── levels/
+│       ├── level1/
+│       │   ├── generator.js  # laberinto 7×7 aleatorio con conectividad total (BFS)
+│       │   └── level1.js     # motor en tiempo real: movimiento, agentes, 📞, DISPARAR/BYPASS/ENCRYPT
+│       └── level2/
+│           ├── serif.js      # "I Shot The Serif"
+│           └── vector.js     # "Shape Type" (canvas + Bézier)
+└── plan/
 ```
+
+> Respecto del plan original: no se crearon `lobby.js` (está en `app.js`), `distribute.js` (la asignación vive en `dashboard.js`), `qr.js` ni `assets/fonts/`. Los módulos previstos `commands.js`, `engine.js`, `gate.js` y `render.js` del Nivel 1 quedaron obsoletos con el rework en tiempo real: todo vive en `generator.js` + `level1.js`.
 
 **Nota técnica:** al usar `<script type="module">`, hace falta servirlos por HTTP.
 Ya estás en XAMPP (`localhost/escape_room`), así que `file://` no es problema.
@@ -91,14 +91,14 @@ Firebase se importa por ESM desde el CDN de gstatic (v10.7.1), como en el diseñ
 - **Entregable:** varios móviles entran a la misma sala y ven el contador en vivo.
 
 ### Fase 2 — Nivel 1: Matrix Protocol (FR-2) (L)
-- `generator.js`: tallar camino primero (garantía de solvencia), luego colocar muros fuera de él;
-  colocar agente(s), puerta y cabina sobre el camino.
-- `render.js`: grid táctil estilo Matrix (canvas rain opcional, CSS Grid para celdas).
-- `commands.js`: botones de dirección/acción que construyen la lista de comandos; `❌` para borrar.
-- `engine.js`: ejecución animada paso a paso; en fallo resaltar comando en rojo y volver a `(0,0)`;
-  en éxito escribir `level_1_completed: true`.
-- `gate.js`: modal del puzzle lógico de `decryptGate`.
-- **Entregable:** un jugador resuelve su laberinto y se persiste su estado.
+- `generator.js`: laberinto 7×7 con muros aleatorios, reintentado hasta que todas las celdas abiertas
+  sean alcanzables (BFS); ubica el 📞 lejos del héroe y 2 agentes separados. `regenerateWalls()` para BYPASS.
+- `level1.js`: bucle `requestAnimationFrame` con pasos fijos por entidad (héroe 150 ms, agentes 300 ms,
+  📞 420 ms, proyectiles 70 ms); movimiento por flechas/WASD/D-pad; agentes que persiguen por BFS;
+  DISPARAR / BYPASS / ENCRYPT; captura → laberinto nuevo; llegar al 📞 → `level_1_completed: true`.
+  El bucle se pausa fuera de la pantalla o con la pestaña oculta.
+- `digitalrain.js`: lluvia digital Matrix de fondo.
+- **Entregable:** un jugador alcanza el 📞 y se persiste su estado.
 
 ### Fase 3 — Sincronización y progresión de fases (FR-3, FR-4) (M)
 - `sync.js`: listener que calcula `level1Completed`/`level2Completed` y muestra barra `Completed: X / N`.
@@ -137,7 +137,7 @@ Firebase se importa por ESM desde el CDN de gstatic (v10.7.1), como en el diseñ
 
 - **NFR-1:** carga < 2 s en 3G → assets mínimos, sin frameworks, CSS crítico inline si hace falta.
 - **NFR-2:** latencia de sync < 500 ms → un solo listener por sala, estado plano.
-- **NFR-3:** sin teclear código → comandos por bloques, validaciones claras.
+- **NFR-3:** sin teclear código → controles táctiles (D-pad + botones de acción) y teclado opcional, validaciones claras.
 - **NFR-4:** refresh o caída de red → reanudar desde `localStorage` + persistencia offline de Firebase.
 - **Regla de oro (FR-3.3):** ninguna fase avanza hasta que *todos* los jugadores registrados completen.
 
@@ -148,7 +148,8 @@ Firebase se importa por ESM desde el CDN de gstatic (v10.7.1), como en el diseñ
 - **Carreras de escritura** en `current_phase` y asignación → resolver con `transaction()` y un único escritor.
 - **Jugador que abandona** a mitad → definir regla: excluir desconectados del umbral para no bloquear la partida
   (usar `connected`).
-- **Generación del laberinto** → probar exhaustivamente que el camino siempre es solucionable.
+- **Generación del laberinto** → probar exhaustivamente que el laberinto siempre es conexo (también tras BYPASS).
+- **Dificultad del Nivel 1** → calibrar `AGENT_MS` / `HERO_MS` en vivo; hoy los agentes van a la mitad de velocidad del héroe.
 - **Fuentes del Nivel 2** → si no se cargan las fuentes, la distinción serif/sans-serif se vuelve ambigua;
   empaquetar fuentes o usar familias web-safe garantizadas.
 - **Reloj del timer** → basarlo en tiempo local del dispositivo, no en Firebase, para evitar desfases.

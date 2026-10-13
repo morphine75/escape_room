@@ -80,11 +80,24 @@ so a simple HTTP host is enough.
 1. Coordinator opens `dashboard.html`, creates a room and sets `N` (required players).
 2. Players open `index.html`, enter the room code and their name → realtime lobby.
 3. Coordinator presses **Iniciar partida**.
-4. Everyone solves **Nivel 1 (Matrix Protocol)** individually.
+4. Everyone plays **Nivel 1 (Matrix Protocol)** individually: a real-time 7×7 maze
+   arcade where they must reach the wandering phone booth 📞 while two agents 🕵🏻 chase
+   them (see controls below). Getting caught restarts with a new maze, attempts are unlimited.
 5. When **all** players complete, the coordinator dashboard advances the room to
    Nivel 2 and assigns each player `serif` or `vector` (first half / second half).
 6. Everyone solves their Nivel 2 mini-game.
 7. When **all** complete, the game ends with the group-victory screen.
+
+### Nivel 1 controls
+
+| Input | Action |
+|-------|--------|
+| Arrow keys / WASD / on-screen D-pad | Move (keeps moving in the chosen direction, Pac-Man style) |
+| Space / `F` / 🔫 DISPARAR | Fire a projectile in the facing direction: freezes the agent it hits for 4 s (3 rounds) |
+| `B` / ⚔️ BYPASS | Rebuild the maze live and move the phone (3 uses, 1.5 s cooldown) |
+| `E` / 🧊 ENCRYPT | Freeze the nearest agent for 5 s (1 use) |
+
+Ammo and uses refill on every new attempt.
 
 ### Coordinator controls
 
@@ -103,4 +116,5 @@ on the next **Iniciar partida** — no page reload needed.
 ## Resolved design decisions
 
 See `system_design_architecture.md` section 9 (grid size, Serif timeout, Shape Type
-tolerance, single writer for `current_phase`, Level 2 assignment, no Phase 3, presence).
+tolerance, single writer for `current_phase`, Level 2 assignment, no Phase 3, presence,
+reset / replay, forced phase advance, Level 1 digital rain and the real-time Level 1 arcade).

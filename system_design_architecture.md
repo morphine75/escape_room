@@ -85,7 +85,7 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
 | `level_2_score` | Score accumulated in "I Shot The Serif" (+100 per correct serif). |
 | `level_2_precision` | Precision achieved in "Shape Type" (≥ 85% required to pass). |
 | `level_3_game` | Assigned Level 3 mini-game: `"hanoi"` (Torres de Hanoi) or `"robot"` (Robot Ciego). Self-assigned by the client when it clears Level 2 (section 7bis.1). |
-| `level_3_moves` | Moves used in Torres de Hanoi (optimum 7 with 3 disks). |
+| `level_3_moves` | Moves used in Torres de Hanoi (optimum 15 with 4 disks). |
 | `level_3_commands` | Commands executed by the Robot Ciego program until it reached the goal. |
 | `connected` | Presence flag maintained via `onDisconnect()`; `false` when the device drops offline. Armed by the client only after the live data confirms the player exists, re-armed if a network drop already set it to `false`, and cancelled when the player is removed (decision #16). |
 | `last_changed` | Timestamp (epoch) of the player's last update. |
@@ -120,7 +120,7 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
          │
          ▼ (ALL active players have level_2_completed = true; each client already self-assigned hanoi / robot)
 [ Screen 9a: Level 3 - "Torres de Hanoi" ] ───────┐
-         │ (move 3 disks A → C, stack rules)        │
+         │ (move 4 disks A → C, stack rules)        │
 [ Screen 9b: Level 3 - "Robot Ciego" ] ───────────┤ (Parallel execution)
          │ (write the whole program, then run it)   │
          ▼                                          │
@@ -474,21 +474,22 @@ When a player clears Level 2, the same transaction that stores `level_2_complete
 
 ```text
 +------------------------------------+
-| 🗼 Torres de Hanoi   Mov. 3 · Óptimo 7 |
+| 🗼 Torres de Hanoi  Mov. 3 · Óptimo 15 |
 | Migrá todos los discos del         |
 | Servidor A al Servidor C ...       |
 +------------------------------------+
 | [Servidor A] [ Buffer B ] [Servidor C] |
 |      |            |            |   |
 |     [1]           |            |   |
-|    [ 2 ]          |          [ 3 ] |
+|    [ 2 ]          |            |   |
+|   [  3  ]         |         [  4  ]|
 +------------------------------------+
 |  Status line (no toasts)           |
 |  [ 🔄 Reiniciar ]                  |
 +------------------------------------+
 ```
 
-* **Goal:** move the 3 disks (`DISKS = 3`, optimum 2³ − 1 = 7 moves) from **Servidor A** to **Servidor C**.
+* **Goal:** move the 4 disks (`DISKS = 4`, optimum 2⁴ − 1 = 15 moves) from **Servidor A** to **Servidor C**.
 * **Rules (system constraints):** one disk at a time (atomic operation); only the top disk is accessible (stack / LIFO); a bigger disk can never sit on a smaller one (data integrity).
 * **Interaction:** tap a tower to lift its top disk (highlighted), tap another tower to drop it; tap the same tower to cancel. Invalid moves are rejected with a message in the status line and do **not** count.
 * **Pass:** all disks on Servidor C, in any number of moves. The result shows whether it was optimal; `level_3_completed: true` and `level_3_moves` are stored.
@@ -597,4 +598,4 @@ Consolidated record of the design points that were previously left open, togethe
 | 15 | **Room management** | Rooms could only be created or opened by code; there was no way to see or remove them | The dashboard lists all rooms and can **delete empty rooms only** (transactional check, so a room never disappears with players inside). A deleted room can be re-created with the same code. |
 | 16 | **Ghost players** | A nameless player appeared in a room without anyone registering. Cause: the `onDisconnect → connected=false` write stayed armed after the player was removed (e.g. *Vaciar sala*), so closing that tab later re-created `players/{id}` as `{connected: false}`; a refresh with a stale session could do the same with `connected: true` | (1) Presence is armed (`trackPresence`) only once the live data shows the player exists, and cancelled (`stopPresence`) when the player or room disappears. (2) `database.rules.json` rejects player records without a non-empty `name`. (3) The dashboard roster flags nameless records and lets the coordinator **remove any player**. |
 | 17 | **Zoom on iPhone** | Players could pinch / double-tap zoom the game and Safari did not reliably zoom back, breaking the layout | The player app blocks zoom in every browser (viewport meta, ≥ 16 px inputs, `touch-action: manipulation`, `js/nozoom.js` for iOS pinch and desktop Ctrl zoom). Game buttons still accept rapid taps. The coordinator dashboard is unaffected. |
-| 18 | **Level 3** | Phase 3 was not implemented (#6); an algorithm-themed third level was requested | **Algorithm Lab:** the group is split in two like Level 2 — **Torres de Hanoi** (3 disks, stack rules, any number of moves passes, optimum 7 shown) and **Robot Ciego** (6×6 grid, write the whole program then run it; a collision highlights the failing command and lets the player fix it). The Level 3 game is self-assigned in the same transaction that completes Level 2 (balanced, ties at random). Level 3 unlocks when every active player cleared Level 2; victory when every active player cleared Level 3. |
+| 18 | **Level 3** | Phase 3 was not implemented (#6); an algorithm-themed third level was requested | **Algorithm Lab:** the group is split in two like Level 2 — **Torres de Hanoi** (4 disks, stack rules, any number of moves passes, optimum 15 shown) and **Robot Ciego** (6×6 grid, write the whole program then run it; a collision highlights the failing command and lets the player fix it). The Level 3 game is self-assigned in the same transaction that completes Level 2 (balanced, ties at random). Level 3 unlocks when every active player cleared Level 2; victory when every active player cleared Level 3. |

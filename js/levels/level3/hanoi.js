@@ -8,7 +8,7 @@
 // message and never count.
 import { $, vibrate } from "../../ui.js";
 
-export const DISKS = 3; // optimum: 7 moves — short enough for a live event
+export const DISKS = 4; // optimum: 2^4 - 1 = 15 moves
 const TOWER_NAMES = ["Servidor A", "Buffer B", "Servidor C"];
 const DISK_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#0ea5e9", "#8b5cf6"];
 

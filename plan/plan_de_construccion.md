@@ -126,7 +126,7 @@ Firebase se importa por ESM desde el CDN de gstatic (v10.7.1), como en el diseñ
 
 ### Fase 5b — Nivel 3: Laboratorio de Algoritmos (M)
 - Al completar el Nivel 2, `completeLevel2()` guarda puntaje/precisión y asigna `level_3_game` (`hanoi` / `robot`) en la misma transacción.
-- `level3/hanoi.js`: 3 discos, tocar torre origen y destino, reglas de pila; éxito → `level_3_completed` + `level_3_moves`.
+- `level3/hanoi.js`: 4 discos (óptimo 15), tocar torre origen y destino, reglas de pila; éxito → `level_3_completed` + `level_3_moves`.
 - `level3/robot.js`: grilla 6×6 con camino garantizado (BFS), programa completo y luego ejecución; choque → comando en rojo y reintento; éxito → `level_3_completed` + `level_3_commands`.
 - **Entregable:** el grupo se divide en dos juegos y pasa a la victoria cuando todos completan.
 

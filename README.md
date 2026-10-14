@@ -96,7 +96,7 @@ so a simple HTTP host is enough.
    allowed: the 2nd wrong tap restarts the round. Finishing it assigns the Nivel 3 game
    (`hanoi` or `robot`, balanced the same way).
 7. When every connected player completes Nivel 2, **Nivel 3 (Laboratorio de Algoritmos)**
-   starts by itself: **Torres de Hanoi** (move 3 disks A → C with stack rules) or
+   starts by itself: **Torres de Hanoi** (move 4 disks A → C with stack rules) or
    **Robot Ciego** (write the whole program, then run it; a crash highlights the bad command).
 8. When every connected player completes Nivel 3, everyone sees the group-victory screen.
 

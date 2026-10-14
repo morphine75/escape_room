@@ -10,7 +10,7 @@ flowchart TB
 
   subgraph Core["Núcleo compartido"]
     direction LR
-    ROOM["room.js<br/>joinRoom · createRoom<br/>completeLevel1 · deleteRoomIfEmpty"]
+    ROOM["room.js<br/>joinRoom · createRoom<br/>completeLevel1/2 · deleteRoomIfEmpty"]
     SYNC["sync.js<br/>subscribeRoom(s)<br/>everyoneCompleted"]
     SES["session.js<br/>localStorage"]
     UI["ui.js<br/>pantallas · toasts · vibración"]
@@ -24,17 +24,21 @@ flowchart TB
     GEN["level1/generator.js<br/>laberinto + BFS"]
     SER["level2/serif.js<br/>I Shot The Serif"]
     VEC["level2/vector.js<br/>Shape Type"]
+    HAN["level3/hanoi.js<br/>Torres de Hanoi"]
+    ROB["level3/robot.js<br/>Robot Ciego"]
     RAIN["digitalrain.js<br/>lluvia Matrix"]
   end
 
   SDK["☁️ Firebase SDK (gstatic CDN)"]
 
   APP --> ROOM & SYNC & SES & UI & FBJS
-  APP --> L1 & SER & VEC & RAIN
+  APP --> L1 & SER & VEC & HAN & ROB & RAIN
   DASH --> ROOM & SYNC & SES & UI & FBJS
   L1 --> GEN & UI
   SER --> UI
   VEC --> UI
+  HAN --> UI
+  ROB --> UI
   ROOM --> FBJS & SES
   SYNC --> FBJS
   ROOM & SYNC & DASH --> SDK
@@ -44,5 +48,5 @@ flowchart TB
   classDef lvl fill:#052e16,stroke:#22c55e,color:#f8fafc
   classDef ext fill:#1e293b,stroke:#f59e0b,color:#f8fafc
   class IDX,DASHH entry
-  class L1,GEN,SER,VEC,RAIN lvl
+  class L1,GEN,SER,VEC,HAN,ROB,RAIN lvl
   class SDK ext

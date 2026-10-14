@@ -85,6 +85,10 @@ export async function joinRoom(roomId, rawName) {
     level_2_game: null,
     level_2_score: 0,
     level_2_precision: 0,
+    level_3_completed: false,
+    level_3_game: null,
+    level_3_moves: 0,
+    level_3_commands: 0,
     joined_at: serverTimestamp(),
     last_changed: serverTimestamp()
   });
@@ -122,31 +126,53 @@ export async function markLevelComplete(roomId, playerId, level, extra = {}) {
   const payload = { last_changed: serverTimestamp(), ...extra };
   if (level === 1) payload.level_1_completed = true;
   if (level === 2) payload.level_2_completed = true;
+  if (level === 3) payload.level_3_completed = true;
   await update(ref(db, `rooms/${roomId}/players/${playerId}`), payload);
 }
 
-// Level 1 done: mark it and self-assign the Level 2 mini-game in one transaction,
-// so the player moves on immediately without waiting for the group or the
-// coordinator. The game goes to whichever of serif / vector has fewer players so
-// far (ties -> serif), which keeps the split close to half and half.
-export async function completeLevel1(roomId, playerId) {
+// Mini-games of the levels that split the group in two (decisions #12 / #18).
+const NEXT_GAMES = {
+  1: { field: "level_2_game", games: ["serif", "vector"] }, // assigned when Level 1 is cleared
+  2: { field: "level_3_game", games: ["hanoi", "robot"] }   // assigned when Level 2 is cleared
+};
+
+// Marks `level` as completed and, in the same transaction, self-assigns the
+// mini-game of the next level, so the client can move on without the
+// coordinator. The game goes to whichever option has fewer players so far (a
+// tie is broken at random), which keeps the split close to half and half
+// whatever order players finish in. `extra` holds level results (score, ...).
+async function completeAndAssign(roomId, playerId, level, extra = {}) {
+  const next = NEXT_GAMES[level];
   await runTransaction(ref(db, `rooms/${roomId}/players`), (players) => {
     if (!players || !players[playerId]) return players; // retried with server data
     const me = players[playerId];
-    if (!me.level_2_game) {
-      let serif = 0;
-      let vector = 0;
-      Object.entries(players).forEach(([id, p]) => {
-        if (id === playerId || !p) return;
-        if (p.level_2_game === "serif") serif++;
-        else if (p.level_2_game === "vector") vector++;
-      });
-      me.level_2_game = serif <= vector ? "serif" : "vector";
+    if (next && !me[next.field]) {
+      const counts = next.games.map(
+        (g) => Object.entries(players).filter(([id, p]) => id !== playerId && p && p[next.field] === g).length
+      );
+      const min = Math.min(...counts);
+      const options = next.games.filter((_, i) => counts[i] === min);
+      me[next.field] = options[Math.floor(Math.random() * options.length)];
     }
-    me.level_1_completed = true;
+    Object.assign(me, extra);
+    me[`level_${level}_completed`] = true;
     return players;
   });
+  // Separate write: server timestamps are not resolved inside transactions.
+  // (Rejected by the rules if the player was removed meanwhile, so it cannot
+  // create a ghost record.)
   await update(ref(db, `rooms/${roomId}/players/${playerId}`), {
     last_changed: serverTimestamp()
   });
+}
+
+// Level 1 cleared -> assigns the Level 2 game (serif / vector).
+export function completeLevel1(roomId, playerId) {
+  return completeAndAssign(roomId, playerId, 1);
+}
+
+// Level 2 cleared (with its score / precision) -> assigns the Level 3 game
+// (hanoi / robot).
+export function completeLevel2(roomId, playerId, extra) {
+  return completeAndAssign(roomId, playerId, 2, extra);
 }

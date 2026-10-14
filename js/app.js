@@ -1,4 +1,5 @@
-// Player-side controller: registration -> lobby -> Level 1 -> wait -> Level 2 -> wait -> victory.
+// Player-side controller: registration -> lobby -> Level 1 -> wait -> Level 2 -> wait
+// -> Level 3 -> wait -> victory.
 // The coordinator only starts the round. After that, every client unlocks the next
 // level by itself as soon as all active players have cleared the current one: no
 // coordinator action is needed. Screen choice is driven by the live room state.
@@ -6,13 +7,16 @@ import "./nozoom.js"; // must run first: blocks pinch / double-tap / Ctrl zoom
 import { isConfigured } from "./firebase.js";
 import { subscribeRoom, activePlayers, everyoneCompleted } from "./sync.js";
 import {
-  joinRoom, markLevelComplete, completeLevel1, trackPresence, stopPresence, normalizeRoomId
+  joinRoom, markLevelComplete, completeLevel1, completeLevel2,
+  trackPresence, stopPresence, normalizeRoomId
 } from "./room.js";
 import { loadSession, clearSession } from "./session.js";
 import { showScreen, toast, $ } from "./ui.js";
 import { initLevel1 } from "./levels/level1/level1.js";
 import { initSerif } from "./levels/level2/serif.js";
 import { initVector } from "./levels/level2/vector.js";
+import { initHanoi } from "./levels/level3/hanoi.js";
+import { initRobot } from "./levels/level3/robot.js";
 import { initRain } from "./digitalrain.js";
 
 const state = {
@@ -23,10 +27,13 @@ const state = {
   // Level controllers are created once and reused; on a coordinator reset they
   // are restarted instead of re-initialised (re-init would double-bind events).
   level1Ctl: null,
-  level2Ctl: null,
-  level2Kind: null,
   level1NeedsRestart: false,
-  level2NeedsRestart: false,
+  // Level 2 / 3 mini-games, keyed by game ("serif", "vector", "hanoi", "robot").
+  // One controller per game for the whole session: a player can get a different
+  // game in the next round, and re-creating a controller would bind its events
+  // twice.
+  gameCtls: {},
+  gamesToRestart: new Set(),
   gameStartedSeen: false,
   assigning: false,
   presenceFor: null, // "roomId/playerId" whose presence is currently armed
@@ -78,7 +85,7 @@ function wireRegister() {
       // Fresh registration -> a fresh round for this device.
       state.gameStartedSeen = false;
       state.level1NeedsRestart = true;
-      state.level2NeedsRestart = true;
+      restartAllGames();
       startSubscription();
     } catch (err) {
       toast("Error al unirse: " + err.message, "error");
@@ -138,7 +145,7 @@ function onData(data) {
     if (state.gameStartedSeen) {
       state.gameStartedSeen = false;
       state.level1NeedsRestart = true;
-      state.level2NeedsRestart = true;
+      restartAllGames();
     }
     renderLobby(data);
     return;
@@ -154,7 +161,7 @@ function onData(data) {
   if (!me.level_2_game) {
     // Level 1 saved but no game yet (e.g. the assignment failed or the page was
     // refreshed mid-way): assign it now.
-    ensureLevel2Assigned();
+    ensureNextGame(1);
     renderWait(data, 1);
     return;
   }
@@ -167,21 +174,41 @@ function onData(data) {
     else renderVector();
     return;
   }
+  if (!me.level_3_game) {
+    ensureNextGame(2);
+    renderWait(data, 2);
+    return;
+  }
   if (!everyoneCompleted(players, "level_2_completed", state.playerId)) {
     renderWait(data, 2);
+    return;
+  }
+  if (!me.level_3_completed) {
+    if (me.level_3_game === "hanoi") renderHanoi();
+    else renderRobot();
+    return;
+  }
+  if (!everyoneCompleted(players, "level_3_completed", state.playerId)) {
+    renderWait(data, 3);
     return;
   }
   renderVictory();
 }
 
-function ensureLevel2Assigned() {
+const saveError = (e) => toast("No se pudo guardar el progreso: " + e.message, "error");
+
+// Marks `level` (1 or 2) as completed and self-assigns the next level's game in
+// one transaction (room.js). `extra` carries the level result (Level 2 score /
+// precision). Also used to repair a missing assignment after a refresh.
+function ensureNextGame(level, extra = {}) {
   if (state.assigning) return;
   state.assigning = true;
-  completeLevel1(state.roomId, state.playerId)
-    .catch((e) => toast("No se pudo guardar el progreso: " + e.message, "error"))
-    .finally(() => {
-      state.assigning = false;
-    });
+  const done = level === 1
+    ? completeLevel1(state.roomId, state.playerId)
+    : completeLevel2(state.roomId, state.playerId, extra);
+  done.catch(saveError).finally(() => {
+    state.assigning = false;
+  });
 }
 
 function updateHeader(me) {
@@ -217,7 +244,7 @@ function renderLevel1(data, me) {
 
   if (!state.level1Ctl) {
     state.level1Ctl = initLevel1({
-      onComplete: ensureLevel2Assigned
+      onComplete: () => ensureNextGame(1)
     });
     state.level1NeedsRestart = false;
   } else if (state.level1NeedsRestart) {
@@ -226,57 +253,68 @@ function renderLevel1(data, me) {
   }
 }
 
+const WAIT_TEXT = {
+  1: ["¡Nivel 1 superado! 📞", "Esperando al resto del equipo. El Nivel 2 empieza solo cuando todos terminen."],
+  2: ["¡Nivel 2 superado! 🎯", "Esperando al resto del equipo. El Nivel 3 empieza solo cuando todos terminen."],
+  3: ["¡Nivel 3 superado! 🧠", "Esperando al resto del equipo. La misión termina cuando todos completen su juego."]
+};
+
 function renderWait(data, level) {
   showScreen("screen-wait");
-  const key = level === 1 ? "level_1_completed" : "level_2_completed";
+  const key = `level_${level}_completed`;
   const list = activePlayers(data.players, state.playerId);
   const done = list.filter((p) => p[key] === true).length;
   const total = list.length;
 
-  $("#wait-title").textContent =
-    level === 1 ? "¡Nivel 1 superado! 📞" : "¡Nivel 2 superado! 🎯";
+  $("#wait-title").textContent = WAIT_TEXT[level][0];
   $("#wait-count").textContent = `${done} / ${total} completaron`;
   $("#wait-bar").style.width = total ? Math.min(100, (done / total) * 100) + "%" : "0%";
-  $("#wait-hint").textContent =
-    level === 1
-      ? "Esperando al resto del equipo. El Nivel 2 empieza solo cuando todos terminen."
-      : "Esperando al resto del equipo. La misión termina cuando todos completen su juego.";
+  $("#wait-hint").textContent = WAIT_TEXT[level][1];
 }
 
-// Creates the Level 2 controller once (serif or vector) and restarts it on reset.
-function ensureLevel2(kind, createFn) {
-  if (!state.level2Ctl || state.level2Kind !== kind) {
-    state.level2Ctl = createFn();
-    state.level2Kind = kind;
-    state.level2NeedsRestart = false;
-  } else if (state.level2NeedsRestart) {
-    state.level2Ctl.restart();
-    state.level2NeedsRestart = false;
+// Shows a Level 2 / 3 mini-game: creates its controller the first time and
+// restarts it when a coordinator reset flagged it.
+function showGame(screenId, kind, createFn) {
+  showScreen(screenId);
+  const ctl = state.gameCtls[kind];
+  if (!ctl) {
+    state.gameCtls[kind] = createFn();
+  } else if (state.gamesToRestart.has(kind)) {
+    ctl.restart();
   }
+  state.gamesToRestart.delete(kind);
+}
+
+function restartAllGames() {
+  Object.keys(state.gameCtls).forEach((k) => state.gamesToRestart.add(k));
 }
 
 function renderSerif() {
-  showScreen("screen-serif");
-  ensureLevel2("serif", () =>
-    initSerif({
-      onComplete: ({ score }) => {
-        markLevelComplete(state.roomId, state.playerId, 2, { level_2_score: score }).catch((e) =>
-          toast("No se pudo guardar el progreso: " + e.message, "error")
-        );
-      }
-    })
+  showGame("screen-serif", "serif", () =>
+    initSerif({ onComplete: ({ score }) => ensureNextGame(2, { level_2_score: score }) })
   );
 }
 
 function renderVector() {
-  showScreen("screen-vector");
-  ensureLevel2("vector", () =>
-    initVector({
-      onComplete: ({ precision }) => {
-        markLevelComplete(state.roomId, state.playerId, 2, { level_2_precision: precision }).catch((e) =>
-          toast("No se pudo guardar el progreso: " + e.message, "error")
-        );
-      }
+  showGame("screen-vector", "vector", () =>
+    initVector({ onComplete: ({ precision }) => ensureNextGame(2, { level_2_precision: precision }) })
+  );
+}
+
+function renderHanoi() {
+  showGame("screen-hanoi", "hanoi", () =>
+    initHanoi({
+      onComplete: ({ moves }) =>
+        markLevelComplete(state.roomId, state.playerId, 3, { level_3_moves: moves }).catch(saveError)
+    })
+  );
+}
+
+function renderRobot() {
+  showGame("screen-robot", "robot", () =>
+    initRobot({
+      onComplete: ({ commands }) =>
+        markLevelComplete(state.roomId, state.playerId, 3, { level_3_commands: commands }).catch(saveError)
     })
   );
 }

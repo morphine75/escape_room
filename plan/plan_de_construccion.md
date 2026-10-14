@@ -17,7 +17,7 @@ Los documentos dejan puntos abiertos. Estas son las resoluciones adoptadas:
 | **Tolerancia de "Shape Type"** | `tolerance = 20 px` ⇒ 85 % ≈ 3 px (inviable en táctil) | Escalar la tolerancia al canvas: **radio de acierto ≈ 8 % del lado menor** (~40–60 px en móvil). |
 | **Progresión entre niveles** | Antes: el dashboard (abierto) avanzaba `current_phase` | **Automática en el cliente**: cada celular desbloquea el siguiente nivel cuando todos los jugadores conectados completaron el actual, sin acción del coordinador. El coordinador solo inicia y reinicia la partida. |
 | **Asignación Nivel 2** | "El coordinador define N al desbloquear" | El **cliente** se autoasigna al completar el Nivel 1, con `transaction()` sobre `players`: toma el juego con menos jugadores (empate → `serif`). |
-| **Fase 3** | Sin definir | **No se implementa mecánica.** El juego concluye al terminar la Fase 2: tras completar el Nivel 2 el juego finaliza con la pantalla de victoria grupal. |
+| **Fase 3** | Sin definir | **Actualizado:** se implementa el **Nivel 3 — Laboratorio de Algoritmos** (Torres de Hanoi / Robot Ciego, reparto en dos como el Nivel 2). El juego termina tras el Nivel 3. |
 | **Presencia / desconexión** | NFR-4 | `onDisconnect()` de Firebase marca jugadores desconectados; `localStorage` reanuda la sesión tras un refresh. |
 | **Mecánica del Nivel 1** | El modo "armar lista de comandos y ejecutar" (puerta `decryptGate`, agentes con HP) fue reemplazado | **Arcade en tiempo real estilo Pac-Man**: 1 agente persigue por BFS (todos los avisos van a la línea de estado, sin notificaciones emergentes), el 📞 deambula, DISPARAR (3 balas, congela 4 s), BYPASS (3 usos, enfriamiento 1,5 s, reconstruye el laberinto) y ENCRYPT (1 uso, congela 5 s al agente más cercano). Si atrapan al héroe se reinicia con laberinto nuevo, intentos ilimitados. |
 
@@ -34,6 +34,7 @@ escape_room/
 │   ├── base.css          # reset, variables CSS, tipografía, toasts, lobby
 │   ├── level1.css        # tema Matrix (negro + verde neón), tablero y controles
 │   ├── level2.css        # tema navy/electric blue
+│   ├── level3.css        # Laboratorio de Algoritmos (Hanoi / Robot)
 │   └── dashboard.css
 ├── js/
 │   ├── firebase-config.js    # credenciales del proyecto Firebase
@@ -49,9 +50,12 @@ escape_room/
 │       ├── level1/
 │       │   ├── generator.js  # laberinto 7×7 aleatorio con conectividad total (BFS)
 │       │   └── level1.js     # motor en tiempo real: movimiento, agentes, 📞, DISPARAR/BYPASS/ENCRYPT
-│       └── level2/
-│           ├── serif.js      # "I Shot The Serif"
-│           └── vector.js     # "Shape Type" (canvas + Bézier)
+│       ├── level2/
+│       │   ├── serif.js      # "I Shot The Serif"
+│       │   └── vector.js     # "Shape Type" (canvas + Bézier)
+│       └── level3/
+│           ├── hanoi.js      # Torres de Hanoi
+│           └── robot.js      # Robot Ciego
 └── plan/
 ```
 
@@ -103,7 +107,7 @@ Firebase se importa por ESM desde el CDN de gstatic (v10.7.1), como en el diseñ
 ### Fase 3 — Sincronización y progresión de fases (FR-3, FR-4) (M)
 - `sync.js`: listener de la sala + `everyoneCompleted()` (todos los jugadores conectados completaron un nivel).
 - Al superar el Nivel 1, `completeLevel1()` (`room.js`) marca el nivel y asigna el juego del Nivel 2 en una transacción → pantalla de espera grupal.
-- Cada cliente desbloquea el siguiente nivel apenas `everyoneCompleted()` es verdadero; tras el Nivel 2, victoria grupal. No hay Fase 3.
+- Cada cliente desbloquea el siguiente nivel apenas `everyoneCompleted()` es verdadero; tras el Nivel 3, victoria grupal.
 - **Entregable:** al completar todos, todas las pantallas pasan de nivel solas, sin recargar ni depender del dashboard.
 
 ### Fase 4 — Nivel 2A: "I Shot The Serif" (M)
@@ -119,6 +123,12 @@ Firebase se importa por ESM desde el CDN de gstatic (v10.7.1), como en el diseñ
 - Drag táctil del nodo rojo, precisión en vivo, cálculo con tolerancia escalada al canvas.
 - Pass ≥ 85 % (animación de éxito + `level_2_completed` + `level_2_precision`); fail → reset y reintento.
 - **Entregable:** juego B jugable y persistido.
+
+### Fase 5b — Nivel 3: Laboratorio de Algoritmos (M)
+- Al completar el Nivel 2, `completeLevel2()` guarda puntaje/precisión y asigna `level_3_game` (`hanoi` / `robot`) en la misma transacción.
+- `level3/hanoi.js`: 3 discos, tocar torre origen y destino, reglas de pila; éxito → `level_3_completed` + `level_3_moves`.
+- `level3/robot.js`: grilla 6×6 con camino garantizado (BFS), programa completo y luego ejecución; choque → comando en rojo y reintento; éxito → `level_3_completed` + `level_3_commands`.
+- **Entregable:** el grupo se divide en dos juegos y pasa a la victoria cuando todos completan.
 
 ### Fase 6 — Dashboard / proyector (M)
 - `dashboard.html`: progreso por nivel, lista de jugadores y su estado, inicio de partida y reinicio / vaciado de sala.

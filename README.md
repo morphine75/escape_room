@@ -8,7 +8,7 @@ No build step, no framework.
 
 ```
 escape_room/
-├── index.html            # Player app (registration → lobby → Nivel 1 → Nivel 2 → victoria)
+├── index.html            # Player app (registration → lobby → Nivel 1 → 2 → 3 → victoria)
 ├── dashboard.html        # Coordinator / projector screen
 ├── css/                  # base + level1 + level2 + dashboard styles
 ├── js/
@@ -22,7 +22,8 @@ escape_room/
 │   ├── dashboard.js         # coordinator controller
 │   └── levels/
 │       ├── level1/          # generator.js + level1.js (Matrix Protocol)
-│       └── level2/          # serif.js + vector.js
+│       ├── level2/          # serif.js + vector.js
+│       └── level3/          # hanoi.js + robot.js (Laboratorio de Algoritmos)
 ├── database.rules.json   # Firebase rules (see warning below)
 └── plan/                 # construction plan
 ```
@@ -92,8 +93,12 @@ so a simple HTTP host is enough.
    even need to be open (a player alone in the room advances immediately). Each client assigns
    itself `serif` or `vector` (whichever has fewer players so far, keeping the split balanced).
 6. Each player solves their Nivel 2 mini-game. In "I Shot The Serif" only **2 errors** are
-   allowed: the 2nd wrong tap restarts the round.
-7. When every connected player completes Nivel 2, everyone sees the group-victory screen.
+   allowed: the 2nd wrong tap restarts the round. Finishing it assigns the Nivel 3 game
+   (`hanoi` or `robot`, balanced the same way).
+7. When every connected player completes Nivel 2, **Nivel 3 (Laboratorio de Algoritmos)**
+   starts by itself: **Torres de Hanoi** (move 3 disks A → C with stack rules) or
+   **Robot Ciego** (write the whole program, then run it; a crash highlights the bad command).
+8. When every connected player completes Nivel 3, everyone sees the group-victory screen.
 
 ### Nivel 1 controls
 
@@ -133,4 +138,4 @@ on the next **Iniciar partida** — no page reload needed.
 See `system_design_architecture.md` section 9 (grid size, Serif timeout, Shape Type
 tolerance, single writer for `current_phase`, Level 2 assignment, no Phase 3, presence,
 reset / replay, Level 1 digital rain, the real-time Level 1 arcade, automatic client-side
-group progression, 1 agent and status-line messages in Nivel 1, and the 2-error limit in Serif).
+group progression, 1 agent and status-line messages in Nivel 1, the 2-error limit in Serif, and Nivel 3).

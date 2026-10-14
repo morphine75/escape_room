@@ -1,0 +1,203 @@
+/* Level 3 — algorithm lab (Torres de Hanoi / Robot Ciego). Same navy theme as
+   Level 2; every control >= 44px and each screen fits a phone without scrolling. */
+
+#screen-hanoi,
+#screen-robot { gap: 10px; padding-top: 10px; }
+
+.l3-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.l3-top strong { color: var(--warning); }
+
+.l3-desc {
+  margin: 0;
+  padding: 8px 10px;
+  background: rgba(37, 99, 235, 0.12);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--text);
+}
+.l3-desc b { color: #93c5fd; }
+
+/* Status line (instead of toasts, which would cover the controls). */
+.l3-msg {
+  margin: 0;
+  min-height: 2.6em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.l3-msg[data-kind="success"] { color: var(--success); }
+.l3-msg[data-kind="warning"] { color: var(--warning); }
+.l3-msg[data-kind="error"] { color: var(--error); }
+
+/* --- Game A: Torres de Hanoi ------------------------------------------------ */
+
+.hanoi-towers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  flex: 1;
+  min-height: 200px;
+  max-height: 300px;
+}
+.hanoi-tower {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 28px 4px 10px;
+  background: var(--card);
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  color: var(--text);
+  touch-action: manipulation;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.hanoi-tower.selected { border-color: var(--warning); box-shadow: 0 0 14px rgba(245, 158, 11, 0.45); }
+.hanoi-label {
+  position: absolute;
+  top: 6px;
+  left: 0;
+  right: 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+/* The peg is drawn behind the disks. */
+.hanoi-peg {
+  position: absolute;
+  bottom: 10px;
+  top: 30px;
+  left: 50%;
+  width: 6px;
+  margin-left: -3px;
+  border-radius: 3px;
+  background: #475569;
+}
+.hanoi-stack {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 3px;
+}
+.hanoi-disk {
+  height: 26px;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.8rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s;
+}
+.hanoi-disk.lifted { transform: translateY(-10px); outline: 2px solid #fff; }
+
+#hanoi-reset { width: 100%; }
+
+/* --- Game B: Robot Ciego ---------------------------------------------------- */
+
+.robot-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-rows: repeat(6, minmax(0, 1fr));
+  gap: 3px;
+  padding: 6px;
+  background: #0b1220;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  /* Shrinks on short screens so the whole game fits without scrolling. */
+  width: min(100%, 360px, calc(100dvh - 430px));
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+}
+.robot-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card);
+  border-radius: 4px;
+  font-size: clamp(0.9rem, 5vw, 1.4rem);
+  transition: background 0.2s;
+}
+.robot-cell.bot { background: #0ea5e9; }
+.robot-cell.goal { background: #10b981; }
+.robot-cell.wall { background: #64748b; box-shadow: inset 0 0 0 2px #334155; }
+.robot-cell.crash { background: var(--error); animation: robot-shake 0.4s; }
+@keyframes robot-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* The program: a compact strip of numbered chips (scrolls inside itself). */
+.robot-cmds {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 4px;
+  min-height: 44px;
+  max-height: 72px;
+  overflow-y: auto;
+  padding: 6px;
+  background: #020617;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 0.8rem;
+}
+.robot-cmds em { color: var(--muted); font-size: 0.78rem; }
+.robot-chip {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--card);
+  white-space: nowrap;
+}
+.robot-chip.active { background: var(--warning); color: #000; }
+.robot-chip.error { background: var(--error); color: #fff; }
+
+.robot-pad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.robot-btn {
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: #334155;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 1.2rem;
+  touch-action: manipulation;
+}
+.robot-btn small { font-size: 0.68rem; color: #cbd5e1; }
+.robot-btn:active { filter: brightness(1.25); }
+.robot-btn:disabled { opacity: 0.45; }
+
+.robot-actions {
+  display: grid;
+  grid-template-columns: 52px 52px 52px 1fr;
+  gap: 6px;
+}
+.robot-actions .btn { padding: 8px; }
+.btn.run { background: var(--success); color: #052e16; }

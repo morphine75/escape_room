@@ -186,6 +186,7 @@ function phaseLabel(data) {
   if (!data.started) return "Lobby";
   if (!everyoneCompleted(data.players, "level_1_completed")) return "Nivel 1";
   if (!everyoneCompleted(data.players, "level_2_completed")) return "Nivel 2";
+  if (!everyoneCompleted(data.players, "level_3_completed")) return "Nivel 3";
   return "Finalizado";
 }
 
@@ -202,9 +203,12 @@ function render(data) {
 
   const done1 = list.filter((p) => p.level_1_completed === true).length;
   const done2 = list.filter((p) => p.level_2_completed === true).length;
-  $("#dash-bar").style.width = total ? Math.min(100, ((done1 + done2) / (2 * total)) * 100) + "%" : "0%";
+  const done3 = list.filter((p) => p.level_3_completed === true).length;
+  $("#dash-bar").style.width = total
+    ? Math.min(100, ((done1 + done2 + done3) / (3 * total)) * 100) + "%"
+    : "0%";
   $("#dash-progress").textContent =
-    `Nivel 1: ${done1} / ${total} · Nivel 2: ${done2} / ${total}`;
+    `Nivel 1: ${done1} / ${total} · Nivel 2: ${done2} / ${total} · Nivel 3: ${done3} / ${total}`;
 
   const startBtn = $("#dash-start");
   startBtn.disabled = data.started === true || total === 0;
@@ -236,18 +240,21 @@ function renderRoster(players) {
     const ghost = !p.name;
     if (ghost) tr.classList.add("ghost");
 
-    let detail = "";
-    if (p.level_2_game === "serif") detail = `serif · ${p.level_2_score || 0} pts`;
-    else if (p.level_2_game === "vector") detail = `vector · ${p.level_2_precision || 0}%`;
+    const details = [];
+    if (p.level_2_completed && p.level_2_game === "serif") details.push(`${p.level_2_score || 0} pts`);
+    if (p.level_2_completed && p.level_2_game === "vector") details.push(`${p.level_2_precision || 0}%`);
+    if (p.level_3_completed && p.level_3_game === "hanoi") details.push(`${p.level_3_moves || 0} mov.`);
+    if (p.level_3_completed && p.level_3_game === "robot") details.push(`${p.level_3_commands || 0} cmd.`);
+    const levelCell = (done, game) => `${done ? "✅" : "⏳"}${game ? " " + game : ""}`;
 
     tr.innerHTML = `
       <td>${i + 1}</td>
       <td>${ghost ? "⚠️ <em>sin nombre</em>" : escapeHtml(p.name)}</td>
       <td title="${p.connected === false ? "Desconectado" : "Conectado"}">${p.connected === false ? "⚫" : "🟢"}</td>
       <td>${p.level_1_completed ? "✅" : "⏳"}</td>
-      <td>${p.level_2_completed ? "✅" : "⏳"}</td>
-      <td>${p.level_2_game || "—"}</td>
-      <td>${detail || "—"}</td>
+      <td>${levelCell(p.level_2_completed, p.level_2_game)}</td>
+      <td>${levelCell(p.level_3_completed, p.level_3_game)}</td>
+      <td>${details.join(" · ") || "—"}</td>
       <td><button class="btn danger roster-del" title="Eliminar jugador">🗑️</button></td>`;
     tr.querySelector(".roster-del").addEventListener("click", () =>
       deletePlayer(pid, ghost ? "(sin nombre)" : p.name)
@@ -292,12 +299,18 @@ async function resetRoom(clearPlayers) {
       const snap = await get(ref(db, `rooms/${state.roomId}/players`));
       const players = snap.val() || {};
       const updates = {};
-      Object.keys(players).forEach((pid) => {
+      // Nameless ghost records are skipped: the rules reject them, and one
+      // rejected path would make the whole (atomic) reset fail.
+      Object.keys(players).filter((pid) => players[pid] && players[pid].name).forEach((pid) => {
         updates[`${pid}/level_1_completed`] = false;
         updates[`${pid}/level_2_completed`] = false;
         updates[`${pid}/level_2_game`] = null;
         updates[`${pid}/level_2_score`] = 0;
         updates[`${pid}/level_2_precision`] = 0;
+        updates[`${pid}/level_3_completed`] = false;
+        updates[`${pid}/level_3_game`] = null;
+        updates[`${pid}/level_3_moves`] = 0;
+        updates[`${pid}/level_3_commands`] = 0;
       });
       if (Object.keys(updates).length) {
         await update(ref(db, `rooms/${state.roomId}/players`), updates);

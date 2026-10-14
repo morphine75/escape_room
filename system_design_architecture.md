@@ -13,7 +13,7 @@
 |-------|------|------|
 | 1 | Matrix Protocol (The Hacker Escape) | Real-time maze arcade (Pac-Man style) |
 | 2 | Typography & Vector Design (two mini-games in parallel) | Typographic agility / curve adjustment |
-| 3 | Not implemented — the game concludes after Level 2 | — |
+| 3 | Algorithm Lab (two mini-games in parallel): Torres de Hanoi / Robot Ciego | Algorithmic thinking: stacks (LIFO) / batch programming |
 
 ---
 
@@ -51,6 +51,9 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
           "level_2_game": "serif",
           "level_2_completed": false,
           "level_2_score": 400,
+          "level_3_game": "hanoi",
+          "level_3_completed": true,
+          "level_3_moves": 7,
           "last_changed": 1728345600
         },
         "player_def456": {
@@ -60,6 +63,8 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
           "level_2_game": "vector",
           "level_2_completed": false,
           "level_2_precision": 0,
+          "level_3_game": null,
+          "level_3_completed": false,
           "last_changed": 1728345605
         }
       }
@@ -75,10 +80,13 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
 | `current_phase` | Legacy room phase. Since decision #12 each client derives the unlocked level from the players' progress, so no client reads it; the dashboard only resets it to `1` when the room returns to the lobby. |
 | `started` | `false` while the room is in the lobby; set to `true` when the coordinator starts the round. Distinguishes the lobby from Level 1. |
 | `required_players` | Target number of players needed to start and advance. |
-| `level_1_completed` / `level_2_completed` | Individual progress per level. |
+| `level_1_completed` / `level_2_completed` / `level_3_completed` | Individual progress per level. |
 | `level_2_game` | Assigned mini-game: `"serif"` ("I Shot The Serif") or `"vector"` ("Shape Type"). Self-assigned by the client when it clears Level 1 (section 7.1). |
 | `level_2_score` | Score accumulated in "I Shot The Serif" (+100 per correct serif). |
 | `level_2_precision` | Precision achieved in "Shape Type" (≥ 85% required to pass). |
+| `level_3_game` | Assigned Level 3 mini-game: `"hanoi"` (Torres de Hanoi) or `"robot"` (Robot Ciego). Self-assigned by the client when it clears Level 2 (section 7bis.1). |
+| `level_3_moves` | Moves used in Torres de Hanoi (optimum 7 with 3 disks). |
+| `level_3_commands` | Commands executed by the Robot Ciego program until it reached the goal. |
 | `connected` | Presence flag maintained via `onDisconnect()`; `false` when the device drops offline. Armed by the client only after the live data confirms the player exists, re-armed if a network drop already set it to `false`, and cancelled when the player is removed (decision #16). |
 | `last_changed` | Timestamp (epoch) of the player's last update. |
 
@@ -110,7 +118,15 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
          ▼                                          │
 [ Screen 7: Level cleared / Group Wait ] <─────────┘
          │
-         ▼ (ALL active players have level_2_completed = true)
+         ▼ (ALL active players have level_2_completed = true; each client already self-assigned hanoi / robot)
+[ Screen 9a: Level 3 - "Torres de Hanoi" ] ───────┐
+         │ (move 3 disks A → C, stack rules)        │
+[ Screen 9b: Level 3 - "Robot Ciego" ] ───────────┤ (Parallel execution)
+         │ (write the whole program, then run it)   │
+         ▼                                          │
+[ Screen 10: Level cleared / Group Wait ] <────────┘
+         │
+         ▼ (ALL active players have level_3_completed = true)
 [ Screen 8: Group Victory / Game Complete ]
 ```
 
@@ -279,7 +295,10 @@ onValue(ref(db, `rooms/${roomId}`), (snapshot) => {
   if (!me.level_2_game) { completeLevel1(roomId, playerId); return renderWait(data, 1); } // e.g. refresh
   if (!everyoneCompleted(data.players, "level_1_completed", playerId)) return renderWait(data, 1);
   if (!me.level_2_completed) return me.level_2_game === "serif" ? renderSerif() : renderVector();
+  if (!me.level_3_game) { completeLevel2(roomId, playerId); return renderWait(data, 2); } // e.g. refresh
   if (!everyoneCompleted(data.players, "level_2_completed", playerId)) return renderWait(data, 2);
+  if (!me.level_3_completed) return me.level_3_game === "hanoi" ? renderHanoi() : renderRobot();
+  if (!everyoneCompleted(data.players, "level_3_completed", playerId)) return renderWait(data, 3);
   renderGroupVictory();
 });
 ```
@@ -292,10 +311,14 @@ onValue(ref(db, `rooms/${roomId}`), (snapshot) => {
 // Level 1: mark it and self-assign the Level 2 game atomically (section 7.1).
 await completeLevel1(roomId, playerId);
 
-// Level 2: mark it and store the score / precision.
+// Level 2: mark it, store the score / precision and self-assign the Level 3
+// game, all in one transaction (section 7bis.1).
+await completeLevel2(roomId, playerId, { level_2_score: score }); // or level_2_precision
+
+// Level 3: mark it and store the result.
 update(ref(db, `rooms/${roomId}/players/${playerId}`), {
-  level_2_completed: true,
-  level_2_score: score,            // or level_2_precision
+  level_3_completed: true,
+  level_3_moves: moves,            // or level_3_commands
   last_changed: serverTimestamp()
 });
 ```
@@ -308,10 +331,10 @@ update(ref(db, `rooms/${roomId}/players/${playerId}`), {
 
 **Distribution algorithm (client-side, decision #12):**
 - When a player clears Level 1, their client runs a `runTransaction()` over `rooms/{roomId}/players` (`completeLevel1()` in `js/room.js`).
-- Inside the transaction it counts how many **other** players already have `serif` and `vector`, and assigns itself the game with fewer players (ties → `serif`), together with `level_1_completed: true`.
+- Inside the transaction it counts how many **other** players already have `serif` and `vector`, and assigns itself the game with fewer players (**a tie is broken at random**), together with `level_1_completed: true`. The same helper (`completeAndAssign()` in `js/room.js`) assigns the Level 3 game when Level 2 is cleared.
 - The transaction makes concurrent completions safe: if two players finish at the same time, one of them is retried with fresh data, so the split stays balanced.
 - An already assigned game is never changed (a retry after a refresh keeps it).
-- **Example:** 10 players → 5 serif, 5 vector. 11 players → 6 serif, 5 vector (whatever order they finish in).
+- **Example:** 10 players → 5 serif, 5 vector. 11 players → 6 / 5 (which game gets the extra player is random), whatever order they finish in.
 
 ---
 
@@ -439,6 +462,70 @@ function calculatePrecision(currentNodePos, targetNodePos, tolerance) {
 
 ---
 
+## 🧠 7bis. LEVEL 3: Algorithm Lab ("Laboratorio de Algoritmos")
+
+Two mini-games that train how a systems analyst thinks. Like Level 2, the group is **split in two**: each player gets one game. Files: `js/levels/level3/hanoi.js`, `js/levels/level3/robot.js`, `css/level3.css`.
+
+### 7bis.1. Game Distribution
+
+When a player clears Level 2, the same transaction that stores `level_2_completed` and the score / precision also assigns `level_3_game` (`completeLevel2()` → `completeAndAssign()` in `js/room.js`): the game with fewer players so far, a tie broken at random. Level 3 unlocks for everyone when every active player has cleared Level 2 (decision #12), and the group-victory screen appears when every active player has cleared Level 3.
+
+### 7bis.2. Game A: "Torres de Hanoi" (server migration)
+
+```text
++------------------------------------+
+| 🗼 Torres de Hanoi   Mov. 3 · Óptimo 7 |
+| Migrá todos los discos del         |
+| Servidor A al Servidor C ...       |
++------------------------------------+
+| [Servidor A] [ Buffer B ] [Servidor C] |
+|      |            |            |   |
+|     [1]           |            |   |
+|    [ 2 ]          |          [ 3 ] |
++------------------------------------+
+|  Status line (no toasts)           |
+|  [ 🔄 Reiniciar ]                  |
++------------------------------------+
+```
+
+* **Goal:** move the 3 disks (`DISKS = 3`, optimum 2³ − 1 = 7 moves) from **Servidor A** to **Servidor C**.
+* **Rules (system constraints):** one disk at a time (atomic operation); only the top disk is accessible (stack / LIFO); a bigger disk can never sit on a smaller one (data integrity).
+* **Interaction:** tap a tower to lift its top disk (highlighted), tap another tower to drop it; tap the same tower to cancel. Invalid moves are rejected with a message in the status line and do **not** count.
+* **Pass:** all disks on Servidor C, in any number of moves. The result shows whether it was optimal; `level_3_completed: true` and `level_3_moves` are stored.
+* **🔄 Reiniciar** resets the towers (only before finishing).
+
+### 7bis.3. Game B: "Robot Ciego" (batch programming)
+
+```text
++------------------------------------+
+| 🤖 Robot Ciego        Comandos: 5  |
+| El robot no ve: armá todo el       |
+| programa y después ejecutalo.      |
++------------------------------------+
+|  [➡️][  ][  ][▓▓][  ][  ]          |
+|  [  ][▓▓][  ][  ][  ][▓▓]          | <-- 6×6 grid, 7 obstacles,
+|  ...                    [🏁]       |     start (0,0) facing right
++------------------------------------+
+|  Status line                       |
+|  1.⬆️ 2.⬆️ 3.↪️ 4.⬆️ 5.⬆️          | <-- program (numbered chips)
+|  [↩️ Girar izq][⬆️ Avanzar][↪️ Girar der] |
+|  [⌫][🗑️][🔀][   ▶️ Ejecutar   ]  |
++------------------------------------+
+```
+
+* **Goal:** program the robot to reach 🏁 at the opposite corner.
+* **Commands:** ⬆️ Avanzar, ↩️ Girar izquierda, ↪️ Girar derecha (max 40). ⌫ removes the last command, 🗑️ clears the program, 🔀 generates a new grid.
+* **Batch execution:** the player writes the **whole program first** and then presses **▶️ Ejecutar**; the robot runs it step by step (~380 ms per command) from the start, with the current command highlighted.
+* **Failure:** hitting an obstacle or leaving the grid → the failing command is highlighted in red, the status line explains it, and the robot returns to the start **keeping the program** so the player can debug it. A program that ends without reaching 🏁 is reported too.
+* **Pass:** the robot reaches 🏁 at any point of the program → `level_3_completed: true` and `level_3_commands` (commands executed) are stored.
+* **Generation:** each client generates its own grid; obstacles are retried until a path from the start to 🏁 exists (BFS), and the first cell in front of the robot is always free.
+
+### 7bis.4. Layout rules
+
+Same navy theme as Level 2; all feedback goes to a status line (no toasts over the controls); every control ≥ 44 px; both screens fit the phone without scrolling (verified at 360×640, 360×740 and 390×844 — the robot grid shrinks with the viewport height).
+
+---
+
 ## 🎨 8. UI/UX Design System
 
 ### 8.1. Level 1 (Matrix theme)
@@ -447,7 +534,7 @@ function calculatePrecision(currentNodePos, targetNodePos, tolerance) {
 * **Typography:** Monospace.
 * **Effects:** Animated **digital rain** canvas background (see sections 5.1 and 9 #10), neon-green glow on the board and the hacker, pulsing phone booth, smooth token movement between cells (CSS `transform` transitions), blue `❄` state for frozen agents.
 
-### 8.2. Level 2 and the rest of the app
+### 8.2. Levels 2 and 3 and the rest of the app
 
 * **Color Palette:**
   * Background: Dark Navy (`#0f172a`)
@@ -476,9 +563,9 @@ function calculatePrecision(currentNodePos, targetNodePos, tolerance) {
 
 Big-screen panel used by the facilitator and the only place with room-level controls. Level unlocks happen on the clients (decision #12), so the dashboard does not drive phase transitions and does not need to stay open.
 
-* **Live view:** room code, status (Lobby / Nivel 1 / Nivel 2 / Finalizado, using the same `everyoneCompleted()` rule as the clients), joined / required players, a per-player roster (Level 1 ✅/⏳, Level 2 ✅/⏳, assigned mini-game, score/precision), a `Nivel 1: X / N · Nivel 2: Y / N` summary and an overall progress bar.
+* **Live view:** room code, status (Lobby / Nivel 1 / Nivel 2 / Nivel 3 / Finalizado, using the same `everyoneCompleted()` rule as the clients), joined / required players, a per-player roster (connection, L1 ✅/⏳, L2 ✅/⏳ + game, L3 ✅/⏳ + game, results: score / precision / moves / commands), a `Nivel 1: X / N · Nivel 2: Y / N · Nivel 3: Z / N` summary and an overall progress bar.
 * **Start round:** writes `started: true`, unlocking Level 1.
-* **Restart round:** clears every player's progress (`level_1_completed`, `level_2_completed`, assigned mini-game, score/precision) and returns the room to the lobby (`current_phase: 1`, `started: false`), **keeping the registered players** so the same group can replay.
+* **Restart round:** clears every player's progress (`level_*_completed`, assigned mini-games, score / precision / moves / commands) and returns the room to the lobby (`current_phase: 1`, `started: false`), **keeping the registered players** so the same group can replay.
 * **Wipe room:** deletes all players and returns to the lobby, ready for a brand-new group.
 * **Player management:** the roster shows each player's connection (🟢 / ⚫) and a **🗑️** button to remove that player (with confirmation); their device returns to the registration screen. Records without a `name` are flagged **⚠️ sin nombre** so stray entries can be removed.
 * **Room management:** the setup screen lists every room (code, player count, status) with **Open** and **🗑️ Delete** actions, and the room view has **← Salas** (back to the list) and **🗑️ Eliminar sala**. A room can be deleted **only when it has no players** (wipe it first); the button is disabled otherwise, and the delete runs as a `transaction()` (`deleteRoomIfEmpty()` in `js/room.js`) that aborts if someone joined in the meantime. After deleting, the code stays in the input so the room can be **re-created** with the same code via **Crear sala**.
@@ -498,7 +585,7 @@ Consolidated record of the design points that were previously left open, togethe
 | 3 | **"Shape Type" tolerance** | `tolerance = 20 px` → 85% ≈ 3 px (unplayable on touch) | Scale the tolerance to the canvas: success radius ≈ **8% of the shorter side** (≈ 40–60 px on mobile). |
 | 4 | **Who writes `current_phase`** | Only "recommended" a single writer | ~~The coordinator dashboard is the sole authority and writes it inside a `transaction()`.~~ **Superseded by #12:** phases are no longer advanced; the dashboard only resets `current_phase` to `1` on a room reset. |
 | 5 | **Level 2 assignment** | "The coordinator defines N on unlock" | ~~The coordinator assigns `serif` / `vector` over a sorted `playerId` list.~~ **Superseded by #12:** each client self-assigns the less-used game inside a `transaction()` when it clears Level 1 (ties → `serif`). |
-| 6 | **Phase 3** | Undefined | **Not implemented.** The game **ends after Level 2**; completing it shows the group-victory screen. |
+| 6 | **Phase 3** | Undefined | ~~Not implemented; the game ended after Level 2.~~ **Superseded by #18:** Level 3 (Algorithm Lab) is implemented; the game ends after Level 3. |
 | 7 | **Presence / disconnection** | NFR-4 | `onDisconnect()` marks players as disconnected; `localStorage` restores `roomId`/`playerId` so a refresh resumes the session. |
 | 8 | **Reset / replay between groups** | Not defined; a finished room could not be reused for the next group | The dashboard offers **Restart round** (reset progress, keep players) and **Wipe room** (remove players), both returning to the lobby. Player progress and `current_phase` are reset transactionally; players' tabs return to the lobby and levels reinitialise without a page reload. |
 | 9 | **Live-session deadlock** | A disconnected player can never complete a level, which would block the automatic phase advance | ~~Force phase advance button.~~ **Obsolete with #12:** only *connected* players gate a level, so a disconnected player cannot block the group; the button was removed. |
@@ -510,3 +597,4 @@ Consolidated record of the design points that were previously left open, togethe
 | 15 | **Room management** | Rooms could only be created or opened by code; there was no way to see or remove them | The dashboard lists all rooms and can **delete empty rooms only** (transactional check, so a room never disappears with players inside). A deleted room can be re-created with the same code. |
 | 16 | **Ghost players** | A nameless player appeared in a room without anyone registering. Cause: the `onDisconnect → connected=false` write stayed armed after the player was removed (e.g. *Vaciar sala*), so closing that tab later re-created `players/{id}` as `{connected: false}`; a refresh with a stale session could do the same with `connected: true` | (1) Presence is armed (`trackPresence`) only once the live data shows the player exists, and cancelled (`stopPresence`) when the player or room disappears. (2) `database.rules.json` rejects player records without a non-empty `name`. (3) The dashboard roster flags nameless records and lets the coordinator **remove any player**. |
 | 17 | **Zoom on iPhone** | Players could pinch / double-tap zoom the game and Safari did not reliably zoom back, breaking the layout | The player app blocks zoom in every browser (viewport meta, ≥ 16 px inputs, `touch-action: manipulation`, `js/nozoom.js` for iOS pinch and desktop Ctrl zoom). Game buttons still accept rapid taps. The coordinator dashboard is unaffected. |
+| 18 | **Level 3** | Phase 3 was not implemented (#6); an algorithm-themed third level was requested | **Algorithm Lab:** the group is split in two like Level 2 — **Torres de Hanoi** (3 disks, stack rules, any number of moves passes, optimum 7 shown) and **Robot Ciego** (6×6 grid, write the whole program then run it; a collision highlights the failing command and lets the player fix it). The Level 3 game is self-assigned in the same transaction that completes Level 2 (balanced, ties at random). Level 3 unlocks when every active player cleared Level 2; victory when every active player cleared Level 3. |

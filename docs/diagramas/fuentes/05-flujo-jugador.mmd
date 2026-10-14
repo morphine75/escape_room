@@ -22,10 +22,17 @@ flowchart TD
   L2C -- No --> K{level_2_game}
   K -- serif --> SER[Jugar I Shot The Serif]
   K -- vector --> VEC[Jugar Shape Type]
-  SER & VEC --> M[Guardar level_2_completed<br/>+ puntaje / precisión] --> L2C
+  SER & VEC --> M[completeLevel2 — transacción:<br/>level_2_completed + puntaje / precisión<br/>+ asignar hanoi / robot] --> L2C
   L2C -- Sí --> G2{¿Todos los conectados<br/>completaron el Nivel 2?}
   G2 -- No --> WAIT2[Espera grupal X / N] --> G2
-  G2 -- Sí --> VIC([🎉 Victoria grupal])
+  G2 -- Sí --> L3C{¿level_3_completed?}
+  L3C -- No --> K3{level_3_game}
+  K3 -- hanoi --> HAN[Jugar Torres de Hanoi]
+  K3 -- robot --> ROB[Jugar Robot Ciego]
+  HAN & ROB --> M3[Guardar level_3_completed<br/>+ movimientos / comandos] --> L3C
+  L3C -- Sí --> G3{¿Todos los conectados<br/>completaron el Nivel 3?}
+  G3 -- No --> WAIT3[Espera grupal X / N] --> G3
+  G3 -- Sí --> VIC([🎉 Victoria grupal])
 
   RESET>Coordinador reinicia:<br/>started = false] -.-> S
 
@@ -33,5 +40,5 @@ flowchart TD
   classDef dec fill:#422006,stroke:#f59e0b,color:#fff
   classDef wait fill:#1e293b,stroke:#94a3b8,color:#f8fafc
   class A,VIC term
-  class B,V,S,L1C,W1,G1,L2C,K,G2 dec
-  class LOB,WAIT1,WAIT2 wait
+  class B,V,S,L1C,W1,G1,L2C,K,G2,L3C,K3,G3 dec
+  class LOB,WAIT1,WAIT2,WAIT3 wait

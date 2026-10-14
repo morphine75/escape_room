@@ -1,0 +1,25 @@
+---
+title: Diagrama de flujo — Nivel 3 "Torres de Hanoi"
+---
+flowchart TD
+  A([Inicio]) --> B[3 discos en el Servidor A<br/>movimientos = 0 · óptimo = 7]
+  B --> T1[/Toca una torre origen/]
+  T1 --> E{¿La torre tiene discos?}
+  E -- No --> M1[Aviso: torre vacía] --> T1
+  E -- Sí --> SEL[Levantar el disco superior<br/>pila LIFO] --> T2[/Toca la torre destino/]
+  T2 --> SAME{¿Es la misma torre?}
+  SAME -- Sí --> CAN[Cancelar movimiento] --> T1
+  SAME -- No --> OK{¿El disco de arriba del destino<br/>es menor que el que se mueve?}
+  OK -- Sí --> ERR[Aviso: integridad violada<br/>el movimiento no cuenta] --> T1
+  OK -- No --> MOVE[Mover el disco<br/>movimientos + 1]
+  MOVE --> W{¿Los 3 discos están<br/>en el Servidor C?}
+  W -- No --> T1
+  W -- Sí --> FIN[level_3_completed = true<br/>level_3_moves · ¿fue óptimo?] --> END([Espera grupal / victoria])
+  RST[/🔄 Reiniciar/] -.-> B
+
+  classDef term fill:#1d4ed8,stroke:#93c5fd,color:#fff
+  classDef dec fill:#422006,stroke:#f59e0b,color:#fff
+  classDef bad fill:#450a0a,stroke:#ef4444,color:#fff
+  class A,END term
+  class E,SAME,OK,W dec
+  class ERR,M1 bad

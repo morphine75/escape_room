@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/level1.css" />
   <link rel="stylesheet" href="css/level2.css" />
+  <link rel="stylesheet" href="css/level3.css" />
 </head>
 <body>
   <!-- Matrix "digital rain" ambience (visible only on the Level 1 screen). -->
@@ -117,6 +118,41 @@
     </div>
     <canvas id="vector-canvas"></canvas>
     <p class="center muted">Arrastrá el nodo rojo para corregir la curva. Precisión requerida: 85%</p>
+  </section>
+
+  <!-- Screen 9a: Level 3 — Torres de Hanoi -->
+  <section id="screen-hanoi" class="screen">
+    <div class="l3-top">
+      <span>🗼 Torres de Hanoi</span>
+      <span>Mov. <strong id="hanoi-moves">0</strong> · Óptimo <strong id="hanoi-optimal">7</strong></span>
+    </div>
+    <p class="l3-desc">Migrá todos los discos del <b>Servidor A</b> al <b>Servidor C</b>: de a uno, solo el de arriba (pila LIFO) y nunca uno mayor sobre uno menor.</p>
+    <div id="hanoi-towers" class="hanoi-towers"></div>
+    <p id="hanoi-msg" class="l3-msg" data-kind="info"></p>
+    <button id="hanoi-reset" class="btn secondary">🔄 Reiniciar</button>
+  </section>
+
+  <!-- Screen 9b: Level 3 — Robot Ciego -->
+  <section id="screen-robot" class="screen">
+    <div class="l3-top">
+      <span>🤖 Robot Ciego</span>
+      <span>Comandos: <strong id="robot-count">0</strong></span>
+    </div>
+    <p class="l3-desc">El robot no ve: armá <b>todo el programa</b> y después ejecutalo. Si choca con una pared, el sistema falla.</p>
+    <div id="robot-grid" class="robot-grid"></div>
+    <p id="robot-msg" class="l3-msg" data-kind="info"></p>
+    <div id="robot-cmds" class="robot-cmds" aria-live="polite"></div>
+    <div id="robot-pad" class="robot-pad">
+      <button class="robot-btn" data-cmd="left" aria-label="Girar a la izquierda">↩️<small>Girar izq.</small></button>
+      <button class="robot-btn" data-cmd="forward" aria-label="Avanzar">⬆️<small>Avanzar</small></button>
+      <button class="robot-btn" data-cmd="right" aria-label="Girar a la derecha">↪️<small>Girar der.</small></button>
+    </div>
+    <div class="robot-actions">
+      <button id="robot-undo" class="btn secondary" aria-label="Borrar el último comando">⌫</button>
+      <button id="robot-clear" class="btn secondary" aria-label="Borrar todo el programa">🗑️</button>
+      <button id="robot-new" class="btn secondary" aria-label="Nuevo laberinto">🔀</button>
+      <button id="robot-run" class="btn run">▶️ Ejecutar</button>
+    </div>
   </section>
 
   <!-- Screen 8: Victory -->

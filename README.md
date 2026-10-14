@@ -93,7 +93,8 @@ so a simple HTTP host is enough.
    even need to be open (a player alone in the room advances immediately). Each client assigns
    itself `serif` or `vector` (whichever has fewer players so far, keeping the split balanced).
 6. Each player solves their Nivel 2 mini-game. In "I Shot The Serif" only **2 errors** are
-   allowed: the 2nd wrong tap restarts the round. Finishing it assigns the Nivel 3 game
+   allowed: the 2nd wrong tap restarts the round. In "Shape Type" the curve is **random every round**
+   and has **two control points** to drag into place (≥ 85% each). Finishing it assigns the Nivel 3 game
    (`hanoi` or `robot`, balanced the same way).
 7. When every connected player completes Nivel 2, **Nivel 3 (Laboratorio de Algoritmos)**
    starts by itself: **Torres de Hanoi** (move 4 disks A → C with stack rules) or

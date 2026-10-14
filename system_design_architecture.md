@@ -400,48 +400,40 @@ Eliminate all letters displayed with **serifs** before the 30-second timer expir
 ### 7.3. Game B: "Shape Type" (Vector Curve Adjustment)
 
 #### 7.3.1. Objective
-Reconstruct the original shape of a letter/logo by dragging deformed **Bézier curve nodes** to match the target silhouette. A **precision of ≥ 85%** is required to pass.
+Reconstruct a **random vector curve** by dragging its **two control points** ("puntos de fuga" / Bézier handles) until the curve matches the dotted target silhouette. A **precision of ≥ 85% on every control point** is required to pass.
 
 #### 7.3.2. Mobile Layout (Portrait)
 
 ```text
 +------------------------------------+
-| ✏️ Vector Adjust | Precision: 92%  |
+| ✏️ Vector Adjust |  Precisión: 63% | <-- worst control point
 +------------------------------------+
-|                                    |
-|                . - - - .           |
-|              /           \         |
-|             |     (🔴)----| <--Draggable
-|              \           /     Node |
-|                ` - - - '           |
-|          (Dotted Guide Silhouette) |
-|                                    |
-|         [↙️ Drag the Red Node]     |
-|                                    |
+|                    (1)             |
+|   ■━━━━━━━━━━━━━━━/                | <-- player's curve (blue) with
+|    ╲    ━━━━━━━━━━━━━━╮            |     its handle lines; (1)(2) red
+|     ╲ .           (2) ■            |     until placed, then green
+|      ' - - - - - - '               | <-- dotted target guide (random
+|      •                 •           |     each round) + target markers
 +------------------------------------+
-|  Drag the red dot to correct       |
-|  the curve of the letter.          |
-|                                    |
-|  Required precision: 85% ✓         |
+|  Punto 1: ✔ · Punto 2: 63%         | <-- per-point status line
+|  Arrastrá los 2 puntos rojos ...   |
 +------------------------------------+
 ```
 
 #### 7.3.3. Game Mechanics
 
-**Setup:**
-- A large letter or icon (e.g., 'a', 'g', 'S', or a career-related logo) is displayed with **one or more Bézier nodes displaced from their correct position**.
-- A **dotted guide silhouette** shows the correct, harmonic shape.
+**Setup (random every round):**
+- The target is a **cubic Bézier** from a fixed start anchor (■, left side) to an end anchor (■, right side) with **two control points**. Anchors and control points are generated at random each round (`generateShape()` in `js/levels/level2/vector.js`), giving **S-shaped** curves (control points on opposite sides of the anchor line) or **C-shaped** ones (same side) — roughly half and half. Shapes are retried until the curve is clearly bent and the two control points are well apart, so it never degenerates into a straight line.
+- The player's curve shares the same anchors, but its two control points start at **random displaced positions** (`displacedNodes()`), far from their targets and from each other.
+- A **dotted guide** shows the target curve, its handle lines and faint target markers.
 
 **Player interaction:**
-1. The player identifies the misplaced red node (🔴).
-2. The player **drags (touch & drag)** the node across the canvas.
-3. Real-time precision calculation:
-   - The distance between the current node position and the target is computed continuously.
-   - The header updates live: `Precision: 92%`.
-4. When the node is released:
-   - Final precision is calculated.
-   - **Pass (≥ 85%):** the letter "comes to life" with a success animation (glow, pulse, scale-up), `level_2_completed: true`, and `level_2_precision` is stored in Firebase.
-   - **Fail (< 85%):** brief error feedback ("Not precise enough, try again"), the node resets to its original position, and the player can retry.
+1. The player **drags (touch & drag)** the red control points 1 and 2 (touch area ≈ 30 px around each). Handle lines from the anchors follow them, like in a vector editor.
+2. Real-time precision: each point is scored against its own target; a point turns **green** once it reaches ≥ 85%. The status line shows `Punto 1: ✔ · Punto 2: 63%` and the header shows the precision of the **worst** point.
+3. When a drag ends:
+   - **Pass (every point ≥ 85%):** the curve snaps to the target and glows green, `level_2_completed: true` and `level_2_precision` (worst point's precision) are stored in Firebase.
+   - **Not yet:** the points **stay where they are** (no reset), so the player keeps adjusting the other point.
+4. A coordinator reset or a new round generates a **new random curve**.
 
 #### 7.3.4. Precision Calculation Algorithm
 
@@ -457,6 +449,8 @@ function calculatePrecision(currentNodePos, targetNodePos, tolerance) {
   return Math.round(precision);
 }
 ```
+
+With two control points, the round's precision is the **minimum** over the points (`Math.min(...nodes.map(nodePrecision))`), so both must be placed.
 
 > **Resolved:** `tolerance = 20` is rejected as unplayable on touchscreens (85% would require landing within ~3 px). The tolerance is **scaled to the canvas**, using a success radius of ≈ 8% of the canvas' shorter side (≈ 40–60 px on mobile).
 
@@ -599,3 +593,4 @@ Consolidated record of the design points that were previously left open, togethe
 | 16 | **Ghost players** | A nameless player appeared in a room without anyone registering. Cause: the `onDisconnect → connected=false` write stayed armed after the player was removed (e.g. *Vaciar sala*), so closing that tab later re-created `players/{id}` as `{connected: false}`; a refresh with a stale session could do the same with `connected: true` | (1) Presence is armed (`trackPresence`) only once the live data shows the player exists, and cancelled (`stopPresence`) when the player or room disappears. (2) `database.rules.json` rejects player records without a non-empty `name`. (3) The dashboard roster flags nameless records and lets the coordinator **remove any player**. |
 | 17 | **Zoom on iPhone** | Players could pinch / double-tap zoom the game and Safari did not reliably zoom back, breaking the layout | The player app blocks zoom in every browser (viewport meta, ≥ 16 px inputs, `touch-action: manipulation`, `js/nozoom.js` for iOS pinch and desktop Ctrl zoom). Game buttons still accept rapid taps. The coordinator dashboard is unaffected. |
 | 18 | **Level 3** | Phase 3 was not implemented (#6); an algorithm-themed third level was requested | **Algorithm Lab:** the group is split in two like Level 2 — **Torres de Hanoi** (4 disks, stack rules, any number of moves passes, optimum 15 shown) and **Robot Ciego** (6×6 grid, write the whole program then run it; a collision highlights the failing command and lets the player fix it). The Level 3 game is self-assigned in the same transaction that completes Level 2 (balanced, ties at random). Level 3 unlocks when every active player cleared Level 2; victory when every active player cleared Level 3. |
+| 19 | **Shape Type variety** | The curve was always the same quadratic with a single draggable node | **Random cubic Bézier every round** (S or C shaped) with **two control points** to place; precision is the worst point's, each point turns green when placed, and points are no longer reset after a release that is not yet precise enough. |

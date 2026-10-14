@@ -1,15 +1,17 @@
 ---
-title: Diagrama de flujo — Nivel 2 "Shape Type"
+title: Diagrama de flujo — Nivel 2 "Shape Type" (curva aleatoria con 2 puntos de control)
 ---
 flowchart TD
-  A([Inicio]) --> B[Dibujar letra con silueta guía punteada<br/>nodo Bézier rojo desplazado al azar]
-  B --> D[/Jugador arrastra el nodo/]
-  D --> P[Calcular precisión en vivo<br/>tolerancia = 8 % del lado menor del canvas]
-  P --> U{¿Soltó el nodo?}
+  A([Inicio de ronda]) --> G[Generar curva Bézier cúbica aleatoria<br/>en S o en C · 2 puntos de control objetivo<br/>reintentar si queda casi recta]
+  G --> B[Dibujar guía punteada + manijas<br/>y la curva del jugador con los<br/>puntos 1 y 2 desplazados al azar]
+  B --> D[/Jugador arrastra el punto 1 o el 2/]
+  D --> P[Precisión en vivo por punto<br/>tolerancia = 8 % del lado menor<br/>punto ≥ 85 % se pone verde]
+  P --> U{¿Soltó el punto?}
   U -- No --> D
-  U -- Sí --> C{¿Precisión ≥ 85 %?}
-  C -- No --> F[Aviso: no es suficientemente preciso<br/>nodo vuelve a una posición al azar] --> D
-  C -- Sí --> OK[Animación de éxito<br/>level_2_completed = true<br/>level_2_precision] --> FIN([Espera grupal / victoria])
+  U -- Sí --> C{¿Los 2 puntos ≥ 85 %?}
+  C -- No --> KEEP[Los puntos quedan donde están<br/>línea de estado: Punto 1 ✔ · Punto 2 63 %] --> D
+  C -- Sí --> OK[La curva encaja y brilla en verde<br/>level_2_completed = true<br/>level_2_precision = la del peor punto] --> FIN([Espera grupal / Nivel 3])
+  RST>Reinicio del coordinador] -.-> A
 
   classDef term fill:#1d4ed8,stroke:#93c5fd,color:#fff
   classDef dec fill:#422006,stroke:#f59e0b,color:#fff

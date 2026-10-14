@@ -14,6 +14,7 @@
 | 1 | Matrix Protocol (The Hacker Escape) | Real-time maze arcade (Pac-Man style) |
 | 2 | Typography & Vector Design (two mini-games in parallel) | Typographic agility / curve adjustment |
 | 3 | Algorithm Lab (two mini-games in parallel): Torres de Hanoi / Robot Ciego | Algorithmic thinking: stacks (LIFO) / batch programming |
+| 4 | Color (everyone plays it) | Graphic design: colour matching and colour harmonies |
 
 ---
 
@@ -87,6 +88,8 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
 | `level_3_game` | Assigned Level 3 mini-game: `"hanoi"` (Torres de Hanoi) or `"robot"` (Robot Ciego). Self-assigned by the client when it clears Level 2 (section 7bis.1). |
 | `level_3_moves` | Moves used in Torres de Hanoi (optimum 15 with 4 disks). |
 | `level_3_commands` | Commands executed by the Robot Ciego program until it reached the goal. |
+| `level_4_completed` | Level 4 (Color) cleared: the six colour stages matched. |
+| `level_4_rounds` | Stage rounds played in Level 4 (6 = every stage matched at the first colour; each timeout adds one). |
 | `connected` | Presence flag maintained via `onDisconnect()`; `false` when the device drops offline. Armed by the client only after the live data confirms the player exists, re-armed if a network drop already set it to `false`, and cancelled when the player is removed (decision #16). |
 | `last_changed` | Timestamp (epoch) of the player's last update. |
 
@@ -147,6 +150,12 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
 [ Screen 10: Level cleared / Group Wait ] <────────┘
          │
          ▼ (ALL active players have level_3_completed = true)
+[ Screen 11: Level 4 - "Color" ] ─── (everyone; 6 stages: HUE → SATURATION → COMPLEMENTARY
+         │                             → ANALOGOUS → TRIADIC → TETRADIC; 20 s timer per colour)
+         ▼
+[ Screen 12: Level cleared / Group Wait ]
+         │
+         ▼ (ALL active players have level_4_completed = true)
 [ Screen 8: Group Victory / Game Complete ]
 ```
 
@@ -319,6 +328,8 @@ onValue(ref(db, `rooms/${roomId}`), (snapshot) => {
   if (!everyoneCompleted(data.players, "level_2_completed", playerId)) return renderWait(data, 2);
   if (!me.level_3_completed) return me.level_3_game === "hanoi" ? renderHanoi() : renderRobot();
   if (!everyoneCompleted(data.players, "level_3_completed", playerId)) return renderWait(data, 3);
+  if (!me.level_4_completed) return renderColor();
+  if (!everyoneCompleted(data.players, "level_4_completed", playerId)) return renderWait(data, 4);
   renderGroupVictory();
 });
 ```
@@ -542,6 +553,53 @@ Same navy theme as Level 2; all feedback goes to a status line (no toasts over t
 
 ---
 
+## 🎨 7ter. LEVEL 4: "Color" (graphic design)
+
+The last level. **Everyone plays it** (the group is not split). Inspired by *color.method.ac*. Files: `js/levels/level4/color.js`, `css/level4.css`.
+
+### 7ter.1. Mobile Layout
+
+```text
++------------------------------------+
+| 3/6 · COMPLEMENTARY        ⏱️ 14 s |
+| Elegí el complementario: el color  |  (?)  <-- scheme diagram
+| opuesto en la rueda (180°).        |
++------------------------------------+
+|        ╭── hue wheel ──╮           |
+|      ╭─ picked colour ring ─╮      | <-- drag on the wheel to pick
+|     │  ◜ timer arc ◝         │     |
+|     │    ( given colour )    │     |
++------------------------------------+
+|  ✅ Muy bien: diferencia de 9°.    | <-- status line
+| [✔HUE][✔SATURATION][COMPLEMENTARY] | <-- 6 stage chips
+| [ANALOGOUS][TRIADIC][TETRADIC]     |
+| [          ✔ Confirmar           ] |
++------------------------------------+
+```
+
+Light, neutral theme (like a design tool) so colours are judged on grey; fits a phone without scrolling (the wheel shrinks with the viewport height).
+
+### 7ter.2. Mechanics
+
+* **Six stages, in order**, each one a colour-theory concept:
+
+  | Stage | The player must pick… |
+  |-------|------------------------|
+  | HUE | the same hue as the centre colour |
+  | SATURATION | the centre colour's saturation (the wheel becomes one hue, from grey to vivid) |
+  | COMPLEMENTARY | the opposite hue (+180°) |
+  | ANALOGOUS | the neighbour hue (+30°, clockwise) |
+  | TRIADIC | the hue at +120° |
+  | TETRADIC (square) | the hue at +90° |
+
+  For the harmony stages a small diagram shows the given colour, the target "?" and the other members of the scheme.
+* **Picking:** drag on the wheel (hues increase clockwise from red at the top); the picked colour fills the ring around the centre and a knob marks it on the wheel. **✔ Confirmar** grades it.
+* **Grades** (hue error in degrees / saturation error in points): Perfecto ≤ 6° / 5, Muy bien ≤ 12° / 10, **Bien ≤ 20° / 15 (pass)**, Regular ≤ 35° / 25, Mal otherwise. A pass marks the stage chip and moves on; otherwise the player keeps trying.
+* **Timer:** 20 s per colour (`ROUND_SECONDS`), drawn as an arc around the centre (red in the last quarter). When it runs out a **new random colour** is generated for the same stage. It only runs while the screen is visible.
+* **Pass:** all six stages matched → `level_4_completed: true` and `level_4_rounds` (stage rounds played). Then group wait; when every active player cleared Level 4, the group-victory screen.
+
+---
+
 ## 🎨 8. UI/UX Design System
 
 ### 8.1. Level 1 (Matrix theme)
@@ -579,13 +637,13 @@ Same navy theme as Level 2; all feedback goes to a status line (no toasts over t
 
 Big-screen panel used by the facilitator and the only place with room-level controls. Level unlocks happen on the clients (decision #12), so the dashboard does not drive phase transitions and does not need to stay open.
 
-* **Live view:** room code, status (Lobby / Nivel 1 / Nivel 2 / Nivel 3 / Finalizado, using the same `everyoneCompleted()` rule as the clients), joined / required players, a per-player roster (connection, L1 ✅/⏳, L2 ✅/⏳ + game, L3 ✅/⏳ + game, results: score / precision / moves / commands), a `Nivel 1: X / N · Nivel 2: Y / N · Nivel 3: Z / N` summary and an overall progress bar.
+* **Live view:** room code, status (Lobby / Nivel 1 / Nivel 2 / Nivel 3 / Nivel 4 / Finalizado, using the same `everyoneCompleted()` rule as the clients), joined / required players, a per-player roster (connection, L1 ✅/⏳, L2 ✅/⏳ + game, L3 ✅/⏳ + game, L4 ✅/⏳, results: score / precision / moves / commands / Level 4 rounds), a `Nivel 1 … · Nivel 4: X / N` summary and an overall progress bar.
 * **Start round:** writes `started: true`, unlocking Level 1.
 * **Restart round:** clears every player's progress (`level_*_completed`, assigned mini-games, score / precision / moves / commands) and returns the room to the lobby (`current_phase: 1`, `started: false`), **keeping the registered players** so the same group can replay.
 * **Wipe room:** deletes all players and returns to the lobby, ready for a brand-new group.
 * **Player management:** the roster shows each player's connection (🟢 / ⚫) and a **🗑️** button to remove that player (with confirmation); their device returns to the registration screen. Records without a `name` are flagged **⚠️ sin nombre** so stray entries can be removed.
 * **Live monitor ("👁️ Ver pantalla"):** each roster row has a 👁️ button that opens a modal with what that player's phone is showing **right now**: the current screen (Lobby, Nivel 1, Espera grupal, Serif, Shape Type, Hanoi, Robot, Victoria) and its key live data — Level 1: attempt, ammo / BYPASS / ENCRYPT left, status line, positions of the hero, phone and agent (❄ when frozen); Serif: time, score, errors, serifs left; Shape Type: precision of each control point; Hanoi: moves vs optimum and the disks on each tower (✋ lifted); Robot: the program, whether it is running, robot position and message; wait screen: group progress. It also warns when the game is in the background or no data arrived for 10 s, and shows "Actualizado hace X s". The modal closes by itself if the player is removed.
-  * **Visual replica (stage 2):** above the data (now a collapsible "Datos" table) the modal redraws what the phone shows, with the same look: Level 1 — the 7×7 maze with walls, hero, phone, agent (❄ glow when frozen) and projectiles, plus the HUD and the three power-up counters; Serif — the 3×3 letters in their real fonts, hit letters faded, and a green dot on the serif letters (coordinator-only hint); Shape Type — an SVG of the target curve (dotted, with handles) and the player's curve with control points 1 and 2 (red / green); Hanoi — the three towers with coloured disks and the lifted one; Robot — the 6×6 grid (walls, 🏁, robot arrow, crash cell in red) and the program chips with the running / failing command highlighted; group wait — title, count and progress bar; lobby / registration / victory — a simple card. Snapshots carry the extra data for this (maze / grid as compact "0/1" strings, letters + fonts, normalised curve geometry and canvas aspect), still well under 1 KB.
+  * **Visual replica (stage 2):** above the data (now a collapsible "Datos" table) the modal redraws what the phone shows, with the same look: Level 1 — the 7×7 maze with walls, hero, phone, agent (❄ glow when frozen) and projectiles, plus the HUD and the three power-up counters; Serif — the 3×3 letters in their real fonts, hit letters faded, and a green dot on the serif letters (coordinator-only hint); Shape Type — an SVG of the target curve (dotted, with handles) and the player's curve with control points 1 and 2 (red / green); Hanoi — the three towers with coloured disks and the lifted one; Robot — the 6×6 grid (walls, 🏁, robot arrow, crash cell in red) and the program chips with the running / failing command highlighted; Color — the stage and timer, three swatches (given colour, the player's pick and the correct answer, the latter coordinator-only) and the six stage chips; group wait — title, count and progress bar; lobby / registration / victory — a simple card. Snapshots carry the extra data for this (maze / grid as compact "0/1" strings, letters + fonts, normalised curve geometry and canvas aspect), still well under 1 KB.
   * How it works (`js/monitor.js` + `dashboard.js`): the dashboard registers as a watcher under `live/{room}/{player}/watchers`; only then does that phone publish its snapshot every 0.5 s (if it changed, plus a 4 s heartbeat). Phones nobody watches send nothing. The data is stored outside `rooms/` so it is not broadcast to every player. Removing a player, wiping or deleting the room also clears its `live` data.
 * **Room management:** the setup screen lists every room (code, player count, status) with **Open** and **🗑️ Delete** actions, and the room view has **← Salas** (back to the list) and **🗑️ Eliminar sala**. A room can be deleted **only when it has no players** (wipe it first); the button is disabled otherwise, and the delete runs as a `transaction()` (`deleteRoomIfEmpty()` in `js/room.js`) that aborts if someone joined in the meantime. After deleting, the code stays in the input so the room can be **re-created** with the same code via **Crear sala**.
 
@@ -620,3 +678,4 @@ Consolidated record of the design points that were previously left open, togethe
 | 19 | **Shape Type variety** | The curve was always the same quadratic with a single draggable node | **Random cubic Bézier every round** (S or C shaped) with **two control points** to place; precision is the worst point's, each point turns green when placed, and points are no longer reset after a release that is not yet precise enough. |
 | 20 | **Watching a player's screen** | The coordinator wanted to see what a student is doing, but phones cannot share their screen from a web page (no `getDisplayMedia` on iOS / Android) and screenshots are heavy | **State mirroring:** the phone publishes a small snapshot of its screen to `live/{room}/{player}/state` only while a dashboard watches it, and the dashboard shows it in a modal (stage 1: key data; stage 2: visual replica). ≈1 KB/s for one watched player. Requires the `live` rule in `database.rules.json`. |
 | 21 | **Live monitor, stage 2 + Serif font fallback** | Stage 1 showed the watched player's data as a table; while checking the Serif replica, "sans-serif" letters were found rendering with serifs on devices missing the font | The monitor modal now draws a **visual replica** of every screen (maze, letters, curve, towers, robot grid, wait / lobby / victory cards) with the data table collapsible below. Serif letters now always declare a generic fallback family (`…, serif` / `…, sans-serif`), so a missing font can no longer turn a correct tap into an error. |
+| 22 | **Level 4** | A last, graphic-design level was requested, modelled on *color.method.ac* | **"Color"**, played by everyone: six stages (HUE, SATURATION, COMPLEMENTARY, ANALOGOUS, TRIADIC, TETRADIC) on a colour wheel, graded like the original (pass = "Bien" or better), 20 s per colour and a new colour when time runs out, until all six are matched. Unlocks when every active player cleared Level 3; victory after Level 4. Shown in the live monitor with the given / picked / correct colours. |

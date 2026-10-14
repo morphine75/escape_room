@@ -1,0 +1,133 @@
+/* Level 4 — "Color" (colour matching). Light, neutral theme like a design tool,
+   so the colours are judged against a grey background. Fits a phone without
+   scrolling: the wheel shrinks with the viewport height. */
+
+body[data-screen="screen-color"] { background: #f4f4f5; color: #18181b; }
+body[data-screen="screen-color"] .app-header { color: #52525b; }
+
+#screen-color { gap: 8px; padding-top: 8px; color: #18181b; }
+
+.cw-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  font-size: 1rem;
+}
+.cw-top strong { font-variant-numeric: tabular-nums; }
+
+.cw-help-row { display: flex; align-items: center; gap: 8px; min-height: 52px; }
+.cw-help { margin: 0; flex: 1; font-size: 0.85rem; line-height: 1.3; color: #3f3f46; }
+.cw-scheme { width: 52px; height: 52px; flex: none; }
+.cw-scheme:empty { display: none; }
+.cw-scheme svg { width: 100%; height: 100%; }
+.cw-scheme .orbit { fill: none; stroke: #a1a1aa; stroke-width: 1; stroke-dasharray: 2 2; }
+.cw-scheme .link { stroke: #71717a; stroke-width: 1; }
+.cw-scheme .faint { fill: #e4e4e7; stroke: #a1a1aa; stroke-width: 0.8; }
+.cw-scheme .given { stroke: #18181b; stroke-width: 1; }
+.cw-scheme .target { fill: #fff; stroke: #18181b; stroke-width: 1.2; }
+.cw-scheme text { font-size: 8px; font-weight: 800; text-anchor: middle; dominant-baseline: middle; fill: #18181b; }
+
+/* The wheel: hue ring (conic gradient) with the picked colour as an inner ring
+   and the given colour in the centre, surrounded by the timer arc. */
+.cw-wheel {
+  position: relative;
+  width: min(100%, 360px, calc(100dvh - 330px));
+  aspect-ratio: 1;
+  margin: 0 auto;
+  border-radius: 50%;
+  touch-action: none;
+  cursor: crosshair;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.15);
+}
+.cw-pick {
+  position: absolute;
+  inset: 17%;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  transition: background 0.08s;
+}
+.cw-pick.empty {
+  background: repeating-conic-gradient(#e4e4e7 0 10deg, #d4d4d8 10deg 20deg) !important;
+}
+.cw-centre {
+  position: absolute;
+  inset: 30%;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  pointer-events: none;
+}
+.cw-timer {
+  position: absolute;
+  inset: 26%;
+  width: 48%;
+  height: 48%;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+.cw-timer circle {
+  fill: none;
+  stroke: #18181b;
+  stroke-width: 2.4;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 0;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.1s linear;
+}
+.cw-timer circle.low { stroke: #ef4444; }
+
+/* Knob: a full-size layer rotated to the picked angle, with a dot on the ring. */
+.cw-knob { position: absolute; inset: 0; pointer-events: none; }
+.cw-knob span {
+  position: absolute;
+  top: 2.5%;
+  left: 50%;
+  width: 11%;
+  aspect-ratio: 1;
+  margin-left: -5.5%;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px #18181b, 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.cw-msg {
+  margin: 0;
+  min-height: 2.4em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #52525b;
+}
+.cw-msg[data-kind="success"] { color: #15803d; }
+.cw-msg[data-kind="warning"] { color: #b45309; }
+.cw-msg[data-kind="error"] { color: #b91c1c; }
+
+.cw-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+.cw-step {
+  padding: 4px 2px;
+  border-radius: 6px;
+  border: 1px solid #d4d4d8;
+  background: #fff;
+  color: #71717a;
+  font-size: clamp(0.56rem, 2.6vw, 0.7rem);
+  font-weight: 800;
+  letter-spacing: 0;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cw-step.current { border-color: #18181b; color: #18181b; }
+.cw-step.done { background: #18181b; border-color: #18181b; color: #fff; }
+.cw-step.done::before { content: "✔ "; }
+
+.cw-confirm { width: 100%; background: #18181b; color: #fff; }
+.cw-confirm:disabled { opacity: 0.35; }

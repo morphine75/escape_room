@@ -27,6 +27,7 @@ flowchart TB
     VEC["level2/vector.js<br/>Shape Type"]
     HAN["level3/hanoi.js<br/>Torres de Hanoi"]
     ROB["level3/robot.js<br/>Robot Ciego"]
+    COL["level4/color.js<br/>Color"]
     RAIN["digitalrain.js<br/>lluvia Matrix"]
   end
 
@@ -34,13 +35,14 @@ flowchart TB
 
   APP --> ROOM & SYNC & SES & UI & FBJS & MON
   MON --> FBJS & SDK
-  APP --> L1 & SER & VEC & HAN & ROB & RAIN
+  APP --> L1 & SER & VEC & HAN & ROB & COL & RAIN
   DASH --> ROOM & SYNC & SES & UI & FBJS
   L1 --> GEN & UI
   SER --> UI
   VEC --> UI
   HAN --> UI
   ROB --> UI
+  COL --> UI
   ROOM --> FBJS & SES
   SYNC --> FBJS
   ROOM & SYNC & DASH --> SDK
@@ -50,5 +52,5 @@ flowchart TB
   classDef lvl fill:#052e16,stroke:#22c55e,color:#f8fafc
   classDef ext fill:#1e293b,stroke:#f59e0b,color:#f8fafc
   class IDX,DASHH entry
-  class L1,GEN,SER,VEC,HAN,ROB,RAIN lvl
+  class L1,GEN,SER,VEC,HAN,ROB,COL,RAIN lvl
   class SDK ext

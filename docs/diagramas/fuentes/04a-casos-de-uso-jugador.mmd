@@ -19,6 +19,7 @@ flowchart LR
     UC6(["Jugar Nivel 2<br/>Shape Type"])
     UC12(["Jugar Nivel 3<br/>Torres de Hanoi"])
     UC13(["Jugar Nivel 3<br/>Robot Ciego"])
+    UC14(["Jugar Nivel 4<br/>Color (6 armonías)"])
     UC7(["Ver progreso del equipo<br/>(pantalla de espera)"])
     UC8(["Ver victoria grupal"])
     UC9(["Asignar juego del<br/>Nivel 2 / Nivel 3"])
@@ -26,7 +27,7 @@ flowchart LR
     UC11(["Marcar desconexión"])
   end
 
-  J --- UC1 & UC2 & UC3 & UC4 & UC5 & UC6 & UC12 & UC13 & UC7 & UC8
+  J --- UC1 & UC2 & UC3 & UC4 & UC5 & UC6 & UC12 & UC13 & UC14 & UC7 & UC8
   UC5 & UC6 -. "«include»" .-> UC9
   UC1 -. "«include»" .-> UC1a
   UC4a & UC4b & UC4c -. "«extend»" .-> UC4
@@ -39,7 +40,7 @@ flowchart LR
   classDef actor fill:#1d4ed8,stroke:#93c5fd,color:#fff
   classDef uc fill:#1e293b,stroke:#94a3b8,color:#f8fafc
   classDef sys fill:#422006,stroke:#f59e0b,color:#fff
-  class UC12,UC13 uc
+  class UC12,UC13,UC14 uc
   class J actor
   class SYS sys
   class UC1,UC1a,UC2,UC3,UC4,UC4a,UC4b,UC4c,UC5,UC6,UC7,UC8,UC9,UC10,UC11 uc

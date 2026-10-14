@@ -1,5 +1,5 @@
 // Player-side controller: registration -> lobby -> Level 1 -> wait -> Level 2 -> wait
-// -> Level 3 -> wait -> victory.
+// -> Level 3 -> wait -> Level 4 -> wait -> victory.
 // The coordinator only starts the round. After that, every client unlocks the next
 // level by itself as soon as all active players have cleared the current one: no
 // coordinator action is needed. Screen choice is driven by the live room state.
@@ -17,6 +17,7 @@ import { initSerif } from "./levels/level2/serif.js";
 import { initVector } from "./levels/level2/vector.js";
 import { initHanoi } from "./levels/level3/hanoi.js";
 import { initRobot } from "./levels/level3/robot.js";
+import { initColor } from "./levels/level4/color.js";
 import { initRain } from "./digitalrain.js";
 import { startMonitor, stopMonitor } from "./monitor.js";
 
@@ -196,6 +197,14 @@ function onData(data) {
     renderWait(data, 3);
     return;
   }
+  if (!me.level_4_completed) {
+    renderColor();
+    return;
+  }
+  if (!everyoneCompleted(players, "level_4_completed", state.playerId)) {
+    renderWait(data, 4);
+    return;
+  }
   renderVictory();
 }
 
@@ -260,7 +269,8 @@ function renderLevel1(data, me) {
 const WAIT_TEXT = {
   1: ["¡Nivel 1 superado! 📞", "Esperando al resto del equipo. El Nivel 2 empieza solo cuando todos terminen."],
   2: ["¡Nivel 2 superado! 🎯", "Esperando al resto del equipo. El Nivel 3 empieza solo cuando todos terminen."],
-  3: ["¡Nivel 3 superado! 🧠", "Esperando al resto del equipo. La misión termina cuando todos completen su juego."]
+  3: ["¡Nivel 3 superado! 🧠", "Esperando al resto del equipo. El Nivel 4 empieza solo cuando todos terminen."],
+  4: ["¡Nivel 4 superado! 🎨", "Esperando al resto del equipo. La misión termina cuando todos completen el Nivel 4."]
 };
 
 function renderWait(data, level) {
@@ -314,6 +324,15 @@ function renderHanoi() {
   );
 }
 
+function renderColor() {
+  showGame("screen-color", "color", () =>
+    initColor({
+      onComplete: ({ rounds }) =>
+        markLevelComplete(state.roomId, state.playerId, 4, { level_4_rounds: rounds }).catch(saveError)
+    })
+  );
+}
+
 function renderRobot() {
   showGame("screen-robot", "robot", () =>
     initRobot({
@@ -330,7 +349,8 @@ const SCREEN_GAME = {
   "screen-serif": "serif",
   "screen-vector": "vector",
   "screen-hanoi": "hanoi",
-  "screen-robot": "robot"
+  "screen-robot": "robot",
+  "screen-color": "color"
 };
 
 // Snapshot of what this phone is showing, published by js/monitor.js only while

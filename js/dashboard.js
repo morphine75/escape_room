@@ -123,6 +123,7 @@ const SCREEN_LABELS = {
   "screen-vector": "Nivel 2 · Shape Type",
   "screen-hanoi": "Nivel 3 · Torres de Hanoi",
   "screen-robot": "Nivel 3 · Robot Ciego",
+  "screen-color": "Nivel 4 · Color",
   "screen-victory": "Victoria 🎉"
 };
 const STALE_MS = 10000; // no update for this long -> warn (heartbeat is every 4 s)
@@ -224,6 +225,19 @@ function watchRows(d) {
         ["Programa", prog.join(" ") || "—"],
         ["Ejecutando", yesNo(g.running)],
         ["Robot", g.robot ? cell(g.robot) : "—"],
+        ["Mensaje", g.msg],
+        ["Completado", yesNo(g.finished)]
+      ];
+    }
+    case "screen-color": {
+      const pickTxt = g.pick === undefined || g.pick < 0 ? "sin elegir" : g.sat ? `${g.pick} % sat.` : `${g.pick}°`;
+      const targetTxt = g.target ? (g.sat ? `${g.target.s} % sat.` : `${g.target.h}°`) : "—";
+      return [
+        ["Etapa", `${(g.stage ?? 0) + 1}/6 · ${g.stageName || ""}`],
+        ["Completadas", asList(g.done).filter(Boolean).length + " / 6"],
+        ["Tiempo", `${g.time ?? "—"} s`],
+        ["Elección / respuesta", `${pickTxt} / ${targetTxt}`],
+        ["Rondas jugadas", g.rounds],
         ["Mensaje", g.msg],
         ["Completado", yesNo(g.finished)]
       ];
@@ -370,6 +384,32 @@ function replicaRobot(g) {
     <div class="rp-chips">${chips || '<em class="muted">Sin comandos</em>'}</div>`;
 }
 
+const hslc = (h, s) => `hsl(${Math.round(h)}, ${Math.round(s)}%, 50%)`;
+const STAGE_NAMES = ["HUE", "SATURATION", "COMPLEMENTARY", "ANALOGOUS", "TRIADIC", "TETRADIC"];
+function replicaColor(g) {
+  if (!g.base) return "";
+  const given = g.sat ? hslc(g.base.h, g.base.s) : hslc(g.base.h, 100);
+  const answer = g.sat ? hslc(g.target.h, g.target.s) : hslc(g.target.h, 100);
+  const hasPick = g.pick !== undefined && g.pick >= 0;
+  const pick = hasPick ? (g.sat ? hslc(g.base.h, g.pick) : hslc(g.pick, 100)) : "";
+  const done = asList(g.done);
+  const chips = STAGE_NAMES.map(
+    (n, i) => `<span class="rp-cstep${done[i] ? " done" : ""}${i === g.stage && !g.finished ? " current" : ""}">${n}</span>`
+  ).join("");
+  const sw = (label, color, extra = "") =>
+    `<div class="rp-swatch"><span style="background:${color || "transparent"}" class="${color ? "" : "empty"}"></span><small>${label}${extra}</small></div>`;
+  return `
+    <div class="rp-top"><span>🎨 ${(g.stage ?? 0) + 1}/6 · ${escapeHtml(g.stageName || "")}</span><span>⏱️ ${g.time ?? "—"} s</span></div>
+    <div class="rp-swatches">
+      ${sw("Color dado", given)}
+      ${sw("Elección", pick, hasPick ? "" : " (—)")}
+      ${sw("Respuesta ✔", answer)}
+    </div>
+    <p class="rp-msg">${escapeHtml(g.msg || "")}</p>
+    <div class="rp-csteps">${chips}</div>
+    <p class="rp-note">"Respuesta ✔" la ve solo el coordinador.</p>`;
+}
+
 function replicaWait(w) {
   const m = /(\d+)\s*\/\s*(\d+)/.exec((w && w.count) || "");
   const pct = m && Number(m[2]) ? Math.min(100, (Number(m[1]) / Number(m[2])) * 100) : 0;
@@ -396,6 +436,7 @@ function watchReplica(d) {
     case "screen-vector": return `<div class="rp">${replicaVector(g)}</div>`;
     case "screen-hanoi": return `<div class="rp">${replicaHanoi(g)}</div>`;
     case "screen-robot": return `<div class="rp">${replicaRobot(g)}</div>`;
+    case "screen-color": return `<div class="rp rp-color">${replicaColor(g)}</div>`;
     case "screen-wait": return `<div class="rp">${replicaWait(d.wait)}</div>`;
     default: {
       const s2 = SIMPLE_SCREENS[d.screen];
@@ -522,6 +563,7 @@ function phaseLabel(data) {
   if (!everyoneCompleted(data.players, "level_1_completed")) return "Nivel 1";
   if (!everyoneCompleted(data.players, "level_2_completed")) return "Nivel 2";
   if (!everyoneCompleted(data.players, "level_3_completed")) return "Nivel 3";
+  if (!everyoneCompleted(data.players, "level_4_completed")) return "Nivel 4";
   return "Finalizado";
 }
 
@@ -539,11 +581,12 @@ function render(data) {
   const done1 = list.filter((p) => p.level_1_completed === true).length;
   const done2 = list.filter((p) => p.level_2_completed === true).length;
   const done3 = list.filter((p) => p.level_3_completed === true).length;
+  const done4 = list.filter((p) => p.level_4_completed === true).length;
   $("#dash-bar").style.width = total
-    ? Math.min(100, ((done1 + done2 + done3) / (3 * total)) * 100) + "%"
+    ? Math.min(100, ((done1 + done2 + done3 + done4) / (4 * total)) * 100) + "%"
     : "0%";
   $("#dash-progress").textContent =
-    `Nivel 1: ${done1} / ${total} · Nivel 2: ${done2} / ${total} · Nivel 3: ${done3} / ${total}`;
+    `Nivel 1: ${done1} / ${total} · Nivel 2: ${done2} / ${total} · Nivel 3: ${done3} / ${total} · Nivel 4: ${done4} / ${total}`;
 
   const startBtn = $("#dash-start");
   startBtn.disabled = data.started === true || total === 0;
@@ -586,6 +629,7 @@ function renderRoster(players) {
     if (p.level_2_completed && p.level_2_game === "vector") details.push(`${p.level_2_precision || 0}%`);
     if (p.level_3_completed && p.level_3_game === "hanoi") details.push(`${p.level_3_moves || 0} mov.`);
     if (p.level_3_completed && p.level_3_game === "robot") details.push(`${p.level_3_commands || 0} cmd.`);
+    if (p.level_4_completed) details.push(`🎨 ${p.level_4_rounds || 0} rondas`);
     const levelCell = (done, game) => `${done ? "✅" : "⏳"}${game ? " " + game : ""}`;
 
     tr.innerHTML = `
@@ -595,6 +639,7 @@ function renderRoster(players) {
       <td>${p.level_1_completed ? "✅" : "⏳"}</td>
       <td>${levelCell(p.level_2_completed, p.level_2_game)}</td>
       <td>${levelCell(p.level_3_completed, p.level_3_game)}</td>
+      <td>${p.level_4_completed ? "✅" : "⏳"}</td>
       <td>${details.join(" · ") || "—"}</td>
       <td class="roster-actions">
         <button class="btn secondary roster-watch" title="Ver pantalla" ${ghost ? "disabled" : ""}>👁️</button>
@@ -657,6 +702,8 @@ async function resetRoom(clearPlayers) {
         updates[`${pid}/level_3_game`] = null;
         updates[`${pid}/level_3_moves`] = 0;
         updates[`${pid}/level_3_commands`] = 0;
+        updates[`${pid}/level_4_completed`] = false;
+        updates[`${pid}/level_4_rounds`] = 0;
       });
       if (Object.keys(updates).length) {
         await update(ref(db, `rooms/${state.roomId}/players`), updates);

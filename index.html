@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="css/level1.css" />
   <link rel="stylesheet" href="css/level2.css" />
   <link rel="stylesheet" href="css/level3.css" />
+  <link rel="stylesheet" href="css/level4.css" />
 </head>
 <body>
   <!-- Matrix "digital rain" ambience (visible only on the Level 1 screen). -->
@@ -154,6 +155,29 @@
       <button id="robot-new" class="btn secondary" aria-label="Nuevo laberinto">🔀</button>
       <button id="robot-run" class="btn run">▶️ Ejecutar</button>
     </div>
+  </section>
+
+  <!-- Screen 11: Level 4 — Color (colour matching) -->
+  <section id="screen-color" class="screen">
+    <div class="cw-top">
+      <span id="cw-stage">1/6 · HUE</span>
+      <span>⏱️ <strong id="cw-time">20</strong> s</span>
+    </div>
+    <div class="cw-help-row">
+      <p id="cw-help" class="cw-help"></p>
+      <div id="cw-scheme" class="cw-scheme"></div>
+    </div>
+    <div id="cw-wheel" class="cw-wheel">
+      <div id="cw-knob" class="cw-knob" hidden><span></span></div>
+      <div id="cw-pick" class="cw-pick empty"></div>
+      <div id="cw-centre" class="cw-centre"></div>
+      <svg class="cw-timer" viewBox="0 0 36 36" aria-hidden="true">
+        <circle id="cw-timer-arc" cx="18" cy="18" r="15.9155" pathLength="100" />
+      </svg>
+    </div>
+    <p id="cw-msg" class="cw-msg" data-kind="info"></p>
+    <div id="cw-steps" class="cw-steps"></div>
+    <button id="cw-confirm" class="btn cw-confirm" disabled>✔ Confirmar</button>
   </section>
 
   <!-- Screen 8: Victory -->

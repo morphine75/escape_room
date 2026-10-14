@@ -1,0 +1,23 @@
+---
+title: Diagrama de flujo — Nivel 4 "Color" (6 etapas de armonías de color)
+---
+flowchart TD
+  A([Inicio: etapa 1 HUE]) --> N[Color nuevo al azar para la etapa<br/>timer = 20 s]
+  N --> D[/Arrastra sobre la rueda para elegir un color/]
+  D --> T{¿Se acabó el tiempo?}
+  T -- Sí --> TO[Aviso: se acabó el tiempo<br/>rondas + 1] --> N
+  T -- No --> C{¿Tocó ✔ Confirmar?}
+  C -- No --> D
+  C -- Sí --> G[Calificar: diferencia de tono en grados<br/>o de saturación en puntos]
+  G --> P{¿Bien o mejor?<br/>tono ≤ 20° · saturación ≤ 15}
+  P -- No --> R[Aviso: Regular / Mal<br/>sigue intentando] --> D
+  P -- Sí --> OK[Etapa completada ✔] --> L{¿Era la etapa 6?}
+  L -- No --> NX[Siguiente etapa:<br/>HUE → SATURATION → COMPLEMENTARY<br/>→ ANALOGOUS → TRIADIC → TETRADIC] --> N
+  L -- Sí --> FIN[level_4_completed = true<br/>level_4_rounds] --> END([Espera grupal / Victoria])
+
+  classDef term fill:#1d4ed8,stroke:#93c5fd,color:#fff
+  classDef dec fill:#422006,stroke:#f59e0b,color:#fff
+  classDef bad fill:#450a0a,stroke:#ef4444,color:#fff
+  class A,END term
+  class T,C,P,L dec
+  class TO,R bad

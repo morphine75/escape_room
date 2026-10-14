@@ -104,3 +104,16 @@
 .rp-chip { padding: 2px 6px; border-radius: 6px; background: var(--card); }
 .rp-chip.active { background: var(--warning); color: #000; }
 .rp-chip.error { background: var(--error); color: #fff; }
+
+/* Level 4 replica */
+.rp-color { background: #f4f4f5; color: #18181b; border-color: #d4d4d8; }
+.rp-color .rp-msg, .rp-color .rp-note { color: #52525b; }
+.rp-swatches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.rp-swatch { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.rp-swatch span { width: 76px; aspect-ratio: 1; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
+.rp-swatch span.empty { background: repeating-conic-gradient(#e4e4e7 0 10deg, #d4d4d8 10deg 20deg) !important; }
+.rp-swatch small { font-weight: 700; color: #3f3f46; }
+.rp-csteps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.rp-cstep { padding: 3px; border-radius: 6px; border: 1px solid #d4d4d8; background: #fff; color: #71717a; font-size: 0.66rem; font-weight: 800; text-align: center; }
+.rp-cstep.current { border-color: #18181b; color: #18181b; }
+.rp-cstep.done { background: #18181b; color: #fff; border-color: #18181b; }

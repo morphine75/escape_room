@@ -90,6 +90,8 @@ export async function joinRoom(roomId, rawName) {
     level_3_game: null,
     level_3_moves: 0,
     level_3_commands: 0,
+    level_4_completed: false,
+    level_4_rounds: 0,
     joined_at: serverTimestamp(),
     last_changed: serverTimestamp()
   });
@@ -136,6 +138,7 @@ export async function markLevelComplete(roomId, playerId, level, extra = {}) {
   if (level === 1) payload.level_1_completed = true;
   if (level === 2) payload.level_2_completed = true;
   if (level === 3) payload.level_3_completed = true;
+  if (level === 4) payload.level_4_completed = true;
   await update(ref(db, `rooms/${roomId}/players/${playerId}`), payload);
 }
 

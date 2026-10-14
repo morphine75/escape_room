@@ -35,6 +35,7 @@ escape_room/
 │   ├── level1.css        # tema Matrix (negro + verde neón), tablero y controles
 │   ├── level2.css        # tema navy/electric blue
 │   ├── level3.css        # Laboratorio de Algoritmos (Hanoi / Robot)
+│   ├── level4.css        # Color (tema claro)
 │   └── dashboard.css
 ├── js/
 │   ├── firebase-config.js    # credenciales del proyecto Firebase
@@ -53,9 +54,11 @@ escape_room/
 │       ├── level2/
 │       │   ├── serif.js      # "I Shot The Serif"
 │       │   └── vector.js     # "Shape Type" (canvas + Bézier)
-│       └── level3/
-│           ├── hanoi.js      # Torres de Hanoi
-│           └── robot.js      # Robot Ciego
+│       ├── level3/
+│       │   ├── hanoi.js      # Torres de Hanoi
+│       │   └── robot.js      # Robot Ciego
+│       └── level4/
+│           └── color.js      # Color (armonías de color)
 └── plan/
 ```
 
@@ -107,7 +110,7 @@ Firebase se importa por ESM desde el CDN de gstatic (v10.7.1), como en el diseñ
 ### Fase 3 — Sincronización y progresión de fases (FR-3, FR-4) (M)
 - `sync.js`: listener de la sala + `everyoneCompleted()` (todos los jugadores conectados completaron un nivel).
 - Al superar el Nivel 1, `completeLevel1()` (`room.js`) marca el nivel y asigna el juego del Nivel 2 en una transacción → pantalla de espera grupal.
-- Cada cliente desbloquea el siguiente nivel apenas `everyoneCompleted()` es verdadero; tras el Nivel 3, victoria grupal.
+- Cada cliente desbloquea el siguiente nivel apenas `everyoneCompleted()` es verdadero; tras el Nivel 4, victoria grupal.
 - **Entregable:** al completar todos, todas las pantallas pasan de nivel solas, sin recargar ni depender del dashboard.
 
 ### Fase 4 — Nivel 2A: "I Shot The Serif" (M)
@@ -129,6 +132,12 @@ Firebase se importa por ESM desde el CDN de gstatic (v10.7.1), como en el diseñ
 - `level3/hanoi.js`: 4 discos (óptimo 15), tocar torre origen y destino, reglas de pila; éxito → `level_3_completed` + `level_3_moves`.
 - `level3/robot.js`: grilla 6×6 con camino garantizado (BFS), programa completo y luego ejecución; choque → comando en rojo y reintento; éxito → `level_3_completed` + `level_3_commands`.
 - **Entregable:** el grupo se divide en dos juegos y pasa a la victoria cuando todos completan.
+
+### Fase 5c — Nivel 4: Color (M)
+- `level4/color.js`: rueda de color con 6 etapas (HUE, SATURATION, COMPLEMENTARY, ANALOGOUS, TRIADIC, TETRADIC),
+  calificación como color.method.ac (pasa con "Bien" o mejor), 20 s por color y color nuevo al vencer.
+- Lo juegan todos; se desbloquea cuando todos completan el Nivel 3. Éxito → `level_4_completed` + `level_4_rounds`.
+- **Entregable:** las 6 armonías completadas y victoria grupal.
 
 ### Fase 6 — Dashboard / proyector (M)
 - `dashboard.html`: progreso por nivel, lista de jugadores y su estado, inicio de partida y reinicio / vaciado de sala.

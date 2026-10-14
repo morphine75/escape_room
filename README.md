@@ -8,7 +8,7 @@ No build step, no framework.
 
 ```
 escape_room/
-├── index.html            # Player app (registration → lobby → Nivel 1 → 2 → 3 → victoria)
+├── index.html            # Player app (registration → lobby → Nivel 1 → 2 → 3 → 4 → victoria)
 ├── dashboard.html        # Coordinator / projector screen
 ├── css/                  # base + level1 + level2 + dashboard styles
 ├── js/
@@ -23,7 +23,8 @@ escape_room/
 │   └── levels/
 │       ├── level1/          # generator.js + level1.js (Matrix Protocol)
 │       ├── level2/          # serif.js + vector.js
-│       └── level3/          # hanoi.js + robot.js (Laboratorio de Algoritmos)
+│       ├── level3/          # hanoi.js + robot.js (Laboratorio de Algoritmos)
+│       └── level4/          # color.js (Color: armonías de color)
 ├── database.rules.json   # Firebase rules (see warning below)
 └── plan/                 # construction plan
 ```
@@ -100,7 +101,11 @@ so a simple HTTP host is enough.
 7. When every connected player completes Nivel 2, **Nivel 3 (Laboratorio de Algoritmos)**
    starts by itself: **Torres de Hanoi** (move 4 disks A → C with stack rules) or
    **Robot Ciego** (write the whole program, then run it; a crash highlights the bad command).
-8. When every connected player completes Nivel 3, everyone sees the group-victory screen.
+8. When every connected player completes Nivel 3, **Nivel 4 (Color)** starts for everyone: a
+   colour wheel with six stages — HUE, SATURATION, COMPLEMENTARY, ANALOGOUS, TRIADIC,
+   TETRADIC. Each colour has a 20 s timer; when it runs out a new colour appears, until
+   all six are matched.
+9. When every connected player completes Nivel 4, everyone sees the group-victory screen.
 
 ### Nivel 1 controls
 
@@ -144,4 +149,4 @@ on the next **Iniciar partida** — no page reload needed.
 See `system_design_architecture.md` section 9 (grid size, Serif timeout, Shape Type
 tolerance, single writer for `current_phase`, Level 2 assignment, no Phase 3, presence,
 reset / replay, Level 1 digital rain, the real-time Level 1 arcade, automatic client-side
-group progression, 1 agent and status-line messages in Nivel 1, the 2-error limit in Serif, and Nivel 3).
+group progression, 1 agent and status-line messages in Nivel 1, the 2-error limit in Serif, Nivel 3 and Nivel 4).

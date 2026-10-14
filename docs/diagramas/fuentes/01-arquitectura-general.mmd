@@ -17,7 +17,7 @@ flowchart LR
 
   WEB["🌐 Servidor web estático<br/>XAMPP o cualquier HTTP<br/>HTML · CSS · JS (ES modules)<br/>sin build ni backend propio"]
   CDN["☁️ CDN gstatic.com<br/>Firebase Web SDK 10.7.1"]
-  DB[("☁️ Firebase Realtime Database<br/>rooms/{roomId}<br/>players/{playerId}")]
+  DB[("☁️ Firebase Realtime Database<br/>rooms/{roomId}/players/{playerId}<br/>live/{roomId}/{playerId} (monitor)")]
 
   Clientes -- "1 · HTTP GET (carga inicial)" --> WEB
   Clientes -- "2 · import del SDK" --> CDN

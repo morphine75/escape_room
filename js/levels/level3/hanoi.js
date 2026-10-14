@@ -132,5 +132,18 @@ export function initHanoi({ onComplete } = {}) {
   });
 
   restart();
-  return { restart };
+  // Key live data for the coordinator's monitor (js/monitor.js). Towers are sent
+  // as strings ("4 3 2 1") because Firebase drops empty arrays.
+  function snapshot() {
+    return {
+      moves,
+      optimal,
+      towers: towers.map((t) => t.join(" ")),
+      selected: selected === null ? -1 : selected,
+      msg: msgEl.textContent,
+      finished
+    };
+  }
+
+  return { restart, snapshot };
 }

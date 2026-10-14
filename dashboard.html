@@ -77,6 +77,17 @@
     </div>
   </section>
 
+  <!-- Live monitor: what a player's phone is showing ("👁️ Ver pantalla") -->
+  <div id="watch-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="watch-title">
+    <div class="modal-card watch-card">
+      <div class="watch-head">
+        <h3 id="watch-title">👁️ Pantalla de <span id="watch-name"></span></h3>
+        <button id="watch-close" class="btn secondary" aria-label="Cerrar">✕</button>
+      </div>
+      <div id="watch-body"></div>
+    </div>
+  </div>
+
   <script type="module" src="js/dashboard.js"></script>
 </body>
 </html>

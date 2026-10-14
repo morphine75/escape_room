@@ -18,6 +18,7 @@ import { initVector } from "./levels/level2/vector.js";
 import { initHanoi } from "./levels/level3/hanoi.js";
 import { initRobot } from "./levels/level3/robot.js";
 import { initRain } from "./digitalrain.js";
+import { startMonitor, stopMonitor } from "./monitor.js";
 
 const state = {
   roomId: null,
@@ -109,6 +110,7 @@ function startSubscription() {
 function onData(data) {
   if (!data) {
     stopPresence(state.roomId, state.playerId).catch(() => {});
+    stopMonitor();
     state.presenceFor = null;
     clearSession();
     toast("La sala no existe o fue cerrada", "error");
@@ -122,6 +124,7 @@ function onData(data) {
     // Removed by the coordinator: cancel the pending onDisconnect write so it
     // cannot re-create this player as a nameless record.
     stopPresence(state.roomId, state.playerId).catch(() => {});
+    stopMonitor();
     state.presenceFor = null;
     clearSession();
     toast("Tu registro ya no está en la sala", "error");
@@ -133,6 +136,7 @@ function onData(data) {
   // onDisconnect (connected=false) while this tab kept running.
   const presenceKey = state.roomId + "/" + state.playerId;
   if (state.presenceFor !== presenceKey || me.connected === false) {
+    if (state.presenceFor !== presenceKey) startMonitor(state.roomId, state.playerId, liveState);
     state.presenceFor = presenceKey;
     trackPresence(state.roomId, state.playerId).catch(() => {});
   }
@@ -317,6 +321,29 @@ function renderRobot() {
         markLevelComplete(state.roomId, state.playerId, 3, { level_3_commands: commands }).catch(saveError)
     })
   );
+}
+
+// --- Live monitor --------------------------------------------------------------
+
+// Mini-game shown on each screen (keys of state.gameCtls).
+const SCREEN_GAME = {
+  "screen-serif": "serif",
+  "screen-vector": "vector",
+  "screen-hanoi": "hanoi",
+  "screen-robot": "robot"
+};
+
+// Snapshot of what this phone is showing, published by js/monitor.js only while
+// the coordinator is watching this player from the dashboard.
+function liveState() {
+  const screen = document.body.dataset.screen || "";
+  const live = { screen };
+  const ctl = screen === "screen-level1" ? state.level1Ctl : state.gameCtls[SCREEN_GAME[screen]];
+  if (ctl && ctl.snapshot) live.game = ctl.snapshot();
+  if (screen === "screen-wait") {
+    live.wait = { title: $("#wait-title").textContent, count: $("#wait-count").textContent };
+  }
+  return live;
 }
 
 function renderVictory() {

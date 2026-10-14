@@ -51,6 +51,7 @@ export async function deleteRoomIfEmpty(roomId) {
   if (!res.committed || hasPlayers) {
     return { ok: false, error: "La sala tiene jugadores. Vaciala antes de eliminarla." };
   }
+  await clearLive(roomId);
   return { ok: true };
 }
 
@@ -119,6 +120,14 @@ export async function stopPresence(roomId, playerId) {
 // registration screen.
 export async function removePlayer(roomId, playerId) {
   await remove(ref(db, `rooms/${roomId}/players/${playerId}`));
+  await clearLive(roomId, playerId);
+}
+
+// Removes live-monitor data (js/monitor.js) for one player, or for the whole
+// room when `playerId` is omitted. Best effort: never blocks the main action.
+export async function clearLive(roomId, playerId) {
+  const path = playerId ? `live/${roomId}/${playerId}` : `live/${roomId}`;
+  await remove(ref(db, path)).catch(() => {});
 }
 
 // FR-2.3 / 7.3.3: persist an individual level completion.

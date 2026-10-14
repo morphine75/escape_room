@@ -1,0 +1,22 @@
+---
+title: Diagrama de secuencia — "👁️ Ver pantalla" (monitor en vivo de un jugador)
+---
+sequenceDiagram
+  autonumber
+  actor C as Coordinador
+  participant D as Dashboard
+  participant FB as Firebase RTDB
+  participant P as Celular del jugador
+  Note over P,FB: El celular escucha live/SALA/jugador/watchers (sin publicar nada)
+  C->>D: Toca 👁️ en la fila del jugador
+  D->>FB: remove(live/.../state) · set(watchers/dash_x = true)<br/>+ onDisconnect → remove
+  FB-->>P: watchers tiene 1 entrada
+  loop Cada 0,5 s (si cambió) + latido cada 4 s
+    P->>FB: set(live/.../state, {pantalla, datos del juego, hidden, seq})
+    FB-->>D: estado nuevo
+    D->>C: Modal: pantalla actual + datos clave en vivo
+  end
+  C->>D: Cierra el modal (✕, Esc o clic afuera)
+  D->>FB: remove(watchers/dash_x)
+  FB-->>P: watchers vacío
+  Note over P: Deja de publicar

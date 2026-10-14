@@ -4,14 +4,20 @@
 // advance here — see DESIGN.md 9 #12.
 import { db, isConfigured } from "./firebase.js";
 import {
-  ref, update, get, remove, runTransaction
+  ref, update, get, set, remove, onValue, onDisconnect, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-import { createRoom, deleteRoomIfEmpty, removePlayer, normalizeRoomId } from "./room.js";
+import { createRoom, deleteRoomIfEmpty, removePlayer, clearLive, normalizeRoomId } from "./room.js";
 import { subscribeRoom, subscribeRooms, everyoneCompleted } from "./sync.js";
-import { saveHostRoom, loadHostRoom, clearHostRoom } from "./session.js";
+import { saveHostRoom, loadHostRoom, clearHostRoom, randomId } from "./session.js";
 import { showScreen, toast, $ } from "./ui.js";
 
 const state = { roomId: null, data: null, unsub: null, transitioning: false };
+
+// "👁️ Ver pantalla" monitor (see js/monitor.js). This dashboard registers itself
+// as a watcher of one player; the player's phone publishes its screen state
+// only while somebody is watching.
+const DASH_ID = randomId("dash_");
+const watch = { pid: null, unsub: null, timer: 0, data: null, receivedAt: 0 };
 
 function boot() {
   if (!isConfigured) {
@@ -53,6 +59,14 @@ function wireSetup() {
   });
 
   $("#dash-back").addEventListener("click", closeRoom);
+
+  $("#watch-close").addEventListener("click", closeWatch);
+  $("#watch-modal").addEventListener("click", (e) => {
+    if (e.target.id === "watch-modal") closeWatch(); // click outside the card
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeWatch();
+  });
 
   $("#dash-delete").addEventListener("click", () => {
     if (state.roomId) deleteRoom(state.roomId);
@@ -98,7 +112,155 @@ function openRoom(roomId) {
 }
 
 // Leaves the open room and goes back to the room list.
+// --- Live monitor ("👁️ Ver pantalla") ------------------------------------------
+
+const SCREEN_LABELS = {
+  "screen-register": "Registro",
+  "screen-lobby": "Lobby (esperando el inicio)",
+  "screen-level1": "Nivel 1 · Matrix Protocol",
+  "screen-wait": "Espera grupal",
+  "screen-serif": "Nivel 2 · I Shot The Serif",
+  "screen-vector": "Nivel 2 · Shape Type",
+  "screen-hanoi": "Nivel 3 · Torres de Hanoi",
+  "screen-robot": "Nivel 3 · Robot Ciego",
+  "screen-victory": "Victoria 🎉"
+};
+const STALE_MS = 10000; // no update for this long -> warn (heartbeat is every 4 s)
+
+async function openWatch(pid, name) {
+  if (!state.roomId) return;
+  closeWatch();
+  watch.pid = pid;
+  watch.data = null;
+  watch.receivedAt = 0;
+  $("#watch-name").textContent = name || "";
+  $("#watch-modal").classList.remove("hidden");
+  renderWatch();
+
+  const base = `live/${state.roomId}/${pid}`;
+  const me = ref(db, `${base}/watchers/${DASH_ID}`);
+  try {
+    // Drop the last state left by an earlier watch, so nothing stale is shown
+    // as current: the phone publishes a fresh one as soon as it sees a watcher.
+    await remove(ref(db, `${base}/state`));
+    // If this dashboard closes or loses connection, stop the phone publishing.
+    await onDisconnect(me).remove();
+    await set(me, true);
+  } catch (err) {
+    $("#watch-body").textContent =
+      "No se pudo activar el monitor: " + err.message +
+      ". ¿Publicaste las reglas nuevas de database.rules.json en Firebase?";
+    return;
+  }
+  watch.unsub = onValue(ref(db, `${base}/state`), (snap) => {
+    watch.data = snap.val();
+    watch.receivedAt = Date.now();
+    renderWatch();
+  });
+  watch.timer = setInterval(renderWatch, 1000); // keeps "hace X s" current
+}
+
+function closeWatch() {
+  if (!watch.pid) return;
+  const me = ref(db, `live/${state.roomId}/${watch.pid}/watchers/${DASH_ID}`);
+  remove(me).catch(() => {});
+  onDisconnect(me).cancel().catch(() => {});
+  if (watch.unsub) watch.unsub();
+  clearInterval(watch.timer);
+  Object.assign(watch, { pid: null, unsub: null, timer: 0, data: null, receivedAt: 0 });
+  $("#watch-modal").classList.add("hidden");
+}
+
+const yesNo = (v) => (v ? "sí" : "no");
+// Firebase may return arrays as {0: .., 1: ..} objects: accept both.
+const asList = (v) => (Array.isArray(v) ? v : Object.values(v || {}));
+const cell = (p) => (p ? `(${p.x + 1}, ${p.y + 1})` : "—");
+
+// Rows [label, value] with the key data of the screen being shown.
+function watchRows(d) {
+  const g = d.game || {};
+  switch (d.screen) {
+    case "screen-level1":
+      return [
+        ["Intento", g.attempts],
+        ["Munición 🔫", g.ammo],
+        ["BYPASS ⚔️", g.bypass],
+        ["ENCRYPT 🧊", g.encrypt],
+        ["Línea de estado", g.status],
+        ["Héroe 😎", cell(g.hero)],
+        ["Cabina 📞", cell(g.phone)],
+        ["Agente 🕵🏻", asList(g.agents).map((a) => cell(a) + (a.frozen ? " ❄ congelado" : "")).join(" · ") || "—"],
+        ["Completado", yesNo(g.solved)]
+      ];
+    case "screen-serif":
+      return [
+        ["Tiempo", `${g.time ?? "—"} s`],
+        ["Puntaje", g.score],
+        ["Errores", `${g.errors ?? 0} / ${g.maxErrors ?? 2}`],
+        ["Serifas restantes", g.remaining],
+        ["Completado", yesNo(g.finished)]
+      ];
+    case "screen-vector":
+      return [
+        ["Precisión (peor punto)", `${g.precision ?? 0} %`],
+        ...asList(g.points).map((p, i) => [`Punto ${i + 1}`, `${p} %${p >= 85 ? " ✔" : ""}`]),
+        ["Completado", yesNo(g.finished)]
+      ];
+    case "screen-hanoi":
+      return [
+        ["Movimientos", `${g.moves ?? 0} (óptimo ${g.optimal ?? "—"})`],
+        ...["Servidor A", "Buffer B", "Servidor C"].map((n, i) => [
+          n + (g.selected === i ? " ✋" : ""),
+          asList(g.towers)[i] || "vacía"
+        ]),
+        ["Mensaje", g.msg],
+        ["Completado", yesNo(g.finished)]
+      ];
+    case "screen-robot": {
+      const names = { forward: "⬆️", left: "↩️", right: "↪️" };
+      const prog = (g.program || "").split(",").filter(Boolean).map((c) => names[c] || c);
+      return [
+        ["Comandos", g.commands ?? 0],
+        ["Programa", prog.join(" ") || "—"],
+        ["Ejecutando", yesNo(g.running)],
+        ["Robot", g.robot ? cell(g.robot) : "—"],
+        ["Mensaje", g.msg],
+        ["Completado", yesNo(g.finished)]
+      ];
+    }
+    case "screen-wait":
+      return [["Pantalla", d.wait ? d.wait.title : "—"], ["Progreso del grupo", d.wait ? d.wait.count : "—"]];
+    default:
+      return [];
+  }
+}
+
+function renderWatch() {
+  if (!watch.pid) return;
+  const body = $("#watch-body");
+  const d = watch.data;
+  if (!d) {
+    body.innerHTML =
+      '<p class="muted">Esperando datos del celular… Puede tardar unos segundos. Si no llega nada, el jugador puede tener el juego cerrado o sin conexión.</p>';
+    return;
+  }
+  const age = Math.round((Date.now() - watch.receivedAt) / 1000);
+  const warnings = [];
+  if (d.hidden) warnings.push("⚠️ El juego está en segundo plano (otra app abierta o pantalla bloqueada).");
+  if (Date.now() - watch.receivedAt > STALE_MS) warnings.push(`⚠️ Sin datos hace ${age} s: puede haber perdido la conexión.`);
+
+  const rows = watchRows(d)
+    .map(([k, v]) => `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(v ?? "—")}</td></tr>`)
+    .join("");
+  body.innerHTML = `
+    <p class="watch-screen">${escapeHtml(SCREEN_LABELS[d.screen] || d.screen || "—")}</p>
+    ${warnings.map((w) => `<p class="watch-warn">${escapeHtml(w)}</p>`).join("")}
+    ${rows ? `<table class="watch-table">${rows}</table>` : ""}
+    <p class="muted watch-age">Actualizado hace ${age} s</p>`;
+}
+
 function closeRoom() {
+  closeWatch();
   if (state.unsub) state.unsub();
   state.unsub = null;
   state.roomId = null;
@@ -223,6 +385,12 @@ function render(data) {
   deleteBtn.title = total > 0 ? "Vaciá la sala antes de eliminarla" : "";
 
   renderRoster(players);
+
+  // The watched player was removed (or the room wiped): close the monitor.
+  if (watch.pid && !players[watch.pid]) {
+    closeWatch();
+    toast("El jugador ya no está en la sala", "warning");
+  }
 }
 
 function renderRoster(players) {
@@ -255,7 +423,11 @@ function renderRoster(players) {
       <td>${levelCell(p.level_2_completed, p.level_2_game)}</td>
       <td>${levelCell(p.level_3_completed, p.level_3_game)}</td>
       <td>${details.join(" · ") || "—"}</td>
-      <td><button class="btn danger roster-del" title="Eliminar jugador">🗑️</button></td>`;
+      <td class="roster-actions">
+        <button class="btn secondary roster-watch" title="Ver pantalla" ${ghost ? "disabled" : ""}>👁️</button>
+        <button class="btn danger roster-del" title="Eliminar jugador">🗑️</button>
+      </td>`;
+    tr.querySelector(".roster-watch").addEventListener("click", () => openWatch(pid, p.name));
     tr.querySelector(".roster-del").addEventListener("click", () =>
       deletePlayer(pid, ghost ? "(sin nombre)" : p.name)
     );
@@ -295,6 +467,7 @@ async function resetRoom(clearPlayers) {
   try {
     if (clearPlayers) {
       await remove(ref(db, `rooms/${state.roomId}/players`));
+      await clearLive(state.roomId);
     } else {
       const snap = await get(ref(db, `rooms/${state.roomId}/players`));
       const players = snap.val() || {};

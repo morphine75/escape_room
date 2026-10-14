@@ -18,11 +18,13 @@ flowchart LR
     U9(["Vaciar sala<br/>(elimina jugadores)"])
     U10(["Confirmar acción"])
     U11(["Eliminar jugador<br/>(incluye registros ⚠️ sin nombre)"])
+    U12(["Ver la pantalla de un jugador<br/>en vivo 👁️"])
   end
 
   FB[("☁️ Firebase<br/>Realtime DB")]
 
-  C --- U1 & U2 & U3 & U4 & U5 & U6 & U7 & U8 & U9 & U11
+  C --- U1 & U2 & U3 & U4 & U5 & U6 & U7 & U8 & U9 & U11 & U12
+  U7 -. "«extend»" .-> U12
   U11 -. "«include»" .-> U10
   U4 -. "«include»" .-> U4a
   U4 -. "«include»" .-> U10
@@ -37,4 +39,4 @@ flowchart LR
   classDef db fill:#422006,stroke:#f59e0b,color:#fff
   class C actor
   class FB db
-  class U1,U2,U3,U4,U4a,U5,U6,U7,U8,U9,U10,U11 uc
+  class U1,U2,U3,U4,U4a,U5,U6,U7,U8,U9,U10,U11,U12 uc

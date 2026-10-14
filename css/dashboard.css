@@ -25,3 +25,17 @@
 .room-empty { color: var(--muted); font-size: 0.9rem; }
 .roster-del { min-height: 34px; padding: 4px 10px; }
 .roster tr.ghost td { color: var(--warning); }
+
+/* Live monitor ("👁️ Ver pantalla") */
+.roster-actions { display: flex; gap: 6px; }
+.roster-watch { min-height: 34px; padding: 4px 10px; }
+.watch-card { width: min(94vw, 480px); max-height: 90vh; overflow-y: auto; }
+.watch-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+.watch-head h3 { margin: 0; }
+.watch-head .btn { min-height: 36px; padding: 4px 12px; }
+.watch-screen { margin: 0 0 8px; font-weight: 700; font-size: 1.05rem; color: #93c5fd; }
+.watch-warn { margin: 0 0 8px; color: var(--warning); font-size: 0.9rem; }
+.watch-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.watch-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 5px 8px 5px 0; width: 45%; vertical-align: top; }
+.watch-table td { padding: 5px 0; border-bottom: 1px solid var(--line); word-break: break-word; }
+.watch-age { margin: 8px 0 0; font-size: 0.8rem; }

@@ -17,5 +17,6 @@ PNG listos para descargar (resolución 2×). Las fuentes editables están en `fu
 | `10-secuencia-desbloqueo.png` | Secuencia | Cómo dos celulares desbloquean el Nivel 2 sin el coordinador |
 | `11-flujo-nivel3-hanoi.png` | Flujo | Nivel 3 "Torres de Hanoi" (reglas de pila, movimientos, óptimo) |
 | `12-flujo-nivel3-robot.png` | Flujo | Nivel 3 "Robot Ciego" (programa completo, ejecución, colisión y depuración) |
+| `13-secuencia-monitor.png` | Secuencia | "👁️ Ver pantalla": cómo el dashboard mira en vivo el celular de un jugador |
 
 Para regenerar un PNG después de editar su `.mmd`, se puede pegar el contenido en https://mermaid.live y exportarlo como PNG.

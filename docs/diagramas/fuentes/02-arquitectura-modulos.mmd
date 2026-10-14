@@ -13,6 +13,7 @@ flowchart TB
     ROOM["room.js<br/>joinRoom · createRoom<br/>completeLevel1/2 · deleteRoomIfEmpty"]
     SYNC["sync.js<br/>subscribeRoom(s)<br/>everyoneCompleted"]
     SES["session.js<br/>localStorage"]
+    MON["monitor.js<br/>publica la pantalla<br/>si el coordinador mira"]
     UI["ui.js<br/>pantallas · toasts · vibración"]
     FBJS["firebase.js<br/>init SDK"]
     CFG["firebase-config.js"]
@@ -31,7 +32,8 @@ flowchart TB
 
   SDK["☁️ Firebase SDK (gstatic CDN)"]
 
-  APP --> ROOM & SYNC & SES & UI & FBJS
+  APP --> ROOM & SYNC & SES & UI & FBJS & MON
+  MON --> FBJS & SDK
   APP --> L1 & SER & VEC & HAN & ROB & RAIN
   DASH --> ROOM & SYNC & SES & UI & FBJS
   L1 --> GEN & UI

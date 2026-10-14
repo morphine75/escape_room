@@ -123,5 +123,10 @@ export function initSerif({ onComplete }) {
   }
 
   reset();
-  return { restart: reset };
+  // Key live data for the coordinator's monitor (js/monitor.js).
+  function snapshot() {
+    return { time: Math.max(0, remainingTime), score, errors, maxErrors: MAX_ERRORS, remaining: remainingSerifs, finished };
+  }
+
+  return { restart: reset, snapshot };
 }

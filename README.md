@@ -59,6 +59,7 @@ but insecure. Paste it into **Realtime Database → Rules** for a quick start, o
 
 It also **rejects player records without a `name`**, so a stray write to a removed player
 (e.g. a delayed `onDisconnect`) can never re-create it as a nameless "ghost" player.
+The `live` node holds the coordinator's "👁️ Ver pantalla" data (see the design doc, decision #20).
 **Re-publish the rules in the Firebase console whenever this file changes.**
 
 ## 4. Run locally
@@ -125,6 +126,9 @@ above the board (no pop-up notifications over the controls).
   has **no players** (use *Vaciar sala* first). The code stays filled in, so **Crear sala**
   re-creates it with the same code.
 
+- **👁️ per player** (roster): opens a live view of what that player's phone is showing
+  (current screen + key game data, updated every ~0.5 s). The phone only sends data while
+  someone is watching it.
 - **🗑️ per player** (roster): removes one player from the room; their phone returns to the
   registration screen. Nameless records are flagged **⚠️ sin nombre** so stray entries can be
   cleaned up. The roster also shows each player's connection (🟢 / ⚫).

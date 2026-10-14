@@ -271,5 +271,10 @@ export function initVector({ onComplete }) {
   // ResizeObserver keeps it correct on rotation / resize afterwards.
   resize();
 
-  return { restart };
+  // Key live data for the coordinator's monitor (js/monitor.js).
+  function snapshot() {
+    return { precision: finished ? Number(precisionEl.textContent) : precision(), points: precisions(), finished };
+  }
+
+  return { restart, snapshot };
 }

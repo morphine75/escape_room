@@ -244,5 +244,17 @@ export function initRobot({ onComplete } = {}) {
   });
 
   restart(false);
-  return { restart };
+  // Key live data for the coordinator's monitor (js/monitor.js).
+  function snapshot() {
+    return {
+      program: program.join(","),
+      commands: program.length,
+      running,
+      finished,
+      robot: { ...robot },
+      msg: msgEl.textContent
+    };
+  }
+
+  return { restart, snapshot };
 }

@@ -90,6 +90,26 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
 | `connected` | Presence flag maintained via `onDisconnect()`; `false` when the device drops offline. Armed by the client only after the live data confirms the player exists, re-armed if a network drop already set it to `false`, and cancelled when the player is removed (decision #16). |
 | `last_changed` | Timestamp (epoch) of the player's last update. |
 
+**Live monitor data** (decision #20) lives in a separate top-level node, so the players' room listeners never receive it:
+
+```json
+{
+  "live": {
+    "ROOM-101": {
+      "player_abc123": {
+        "watchers": { "dash_k3j9x": true },
+        "state": { "screen": "screen-level1", "game": { "attempts": 2, "ammo": 3, "...": "..." }, "hidden": false, "seq": 42 }
+      }
+    }
+  }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `live/{room}/{player}/watchers/{dashboardId}` | Written by a dashboard while its "👁️ Ver pantalla" modal is open for that player (removed on close and via `onDisconnect`). |
+| `live/{room}/{player}/state` | Written by the player's phone **only while it has watchers**: current screen, key data of the game on screen (`snapshot()` of each level controller), whether the app is in the background (`hidden`) and a `seq` counter. |
+
 > **Note:** Use a single timestamp format everywhere (epoch via `ServerValue.TIMESTAMP` is recommended).
 
 > **Resolved (presence / disconnection):** each client registers an `onDisconnect()` handler that flips `connected` to `false`, and stores its `roomId`/`playerId` in `localStorage` so a browser refresh resumes the same session.
@@ -563,6 +583,8 @@ Big-screen panel used by the facilitator and the only place with room-level cont
 * **Restart round:** clears every player's progress (`level_*_completed`, assigned mini-games, score / precision / moves / commands) and returns the room to the lobby (`current_phase: 1`, `started: false`), **keeping the registered players** so the same group can replay.
 * **Wipe room:** deletes all players and returns to the lobby, ready for a brand-new group.
 * **Player management:** the roster shows each player's connection (🟢 / ⚫) and a **🗑️** button to remove that player (with confirmation); their device returns to the registration screen. Records without a `name` are flagged **⚠️ sin nombre** so stray entries can be removed.
+* **Live monitor ("👁️ Ver pantalla"):** each roster row has a 👁️ button that opens a modal with what that player's phone is showing **right now**: the current screen (Lobby, Nivel 1, Espera grupal, Serif, Shape Type, Hanoi, Robot, Victoria) and its key live data — Level 1: attempt, ammo / BYPASS / ENCRYPT left, status line, positions of the hero, phone and agent (❄ when frozen); Serif: time, score, errors, serifs left; Shape Type: precision of each control point; Hanoi: moves vs optimum and the disks on each tower (✋ lifted); Robot: the program, whether it is running, robot position and message; wait screen: group progress. It also warns when the game is in the background or no data arrived for 10 s, and shows "Actualizado hace X s". The modal closes by itself if the player is removed. **Stage 1** shows these data as a table; **stage 2** will draw a visual replica of each game.
+  * How it works (`js/monitor.js` + `dashboard.js`): the dashboard registers as a watcher under `live/{room}/{player}/watchers`; only then does that phone publish its snapshot every 0.5 s (if it changed, plus a 4 s heartbeat). Phones nobody watches send nothing. The data is stored outside `rooms/` so it is not broadcast to every player. Removing a player, wiping or deleting the room also clears its `live` data.
 * **Room management:** the setup screen lists every room (code, player count, status) with **Open** and **🗑️ Delete** actions, and the room view has **← Salas** (back to the list) and **🗑️ Eliminar sala**. A room can be deleted **only when it has no players** (wipe it first); the button is disabled otherwise, and the delete runs as a `transaction()` (`deleteRoomIfEmpty()` in `js/room.js`) that aborts if someone joined in the meantime. After deleting, the code stays in the input so the room can be **re-created** with the same code via **Crear sala**.
 
 Both reset actions require confirmation. When the room returns to the lobby, the players' open tabs follow automatically and each level **initialises fresh** on the next start: the level controllers are *restarted*, not re-created, so there are no duplicate event handlers and no page reload is needed.
@@ -594,3 +616,4 @@ Consolidated record of the design points that were previously left open, togethe
 | 17 | **Zoom on iPhone** | Players could pinch / double-tap zoom the game and Safari did not reliably zoom back, breaking the layout | The player app blocks zoom in every browser (viewport meta, ≥ 16 px inputs, `touch-action: manipulation`, `js/nozoom.js` for iOS pinch and desktop Ctrl zoom). Game buttons still accept rapid taps. The coordinator dashboard is unaffected. |
 | 18 | **Level 3** | Phase 3 was not implemented (#6); an algorithm-themed third level was requested | **Algorithm Lab:** the group is split in two like Level 2 — **Torres de Hanoi** (4 disks, stack rules, any number of moves passes, optimum 15 shown) and **Robot Ciego** (6×6 grid, write the whole program then run it; a collision highlights the failing command and lets the player fix it). The Level 3 game is self-assigned in the same transaction that completes Level 2 (balanced, ties at random). Level 3 unlocks when every active player cleared Level 2; victory when every active player cleared Level 3. |
 | 19 | **Shape Type variety** | The curve was always the same quadratic with a single draggable node | **Random cubic Bézier every round** (S or C shaped) with **two control points** to place; precision is the worst point's, each point turns green when placed, and points are no longer reset after a release that is not yet precise enough. |
+| 20 | **Watching a player's screen** | The coordinator wanted to see what a student is doing, but phones cannot share their screen from a web page (no `getDisplayMedia` on iOS / Android) and screenshots are heavy | **State mirroring:** the phone publishes a small snapshot of its screen to `live/{room}/{player}/state` only while a dashboard watches it, and the dashboard shows it in a modal (stage 1: key data; stage 2: visual replica). ≈1 KB/s for one watched player. Requires the `live` rule in `database.rules.json`. |

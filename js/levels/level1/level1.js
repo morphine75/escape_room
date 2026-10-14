@@ -560,5 +560,21 @@ export function initLevel1({ onComplete } = {}) {
   updateHud();
   sync();
 
-  return { newPuzzle };
+  // Key live data for the coordinator's "ver pantalla" monitor (js/monitor.js).
+  function snapshot() {
+    const t = now();
+    return {
+      attempts: state.attempts,
+      ammo: state.ammo,
+      bypass: state.bypassUses,
+      encrypt: state.encryptUses,
+      status: statusEl.textContent,
+      solved: state.solved,
+      hero: { x: state.hero.x, y: state.hero.y },
+      phone: { x: state.phone.x, y: state.phone.y },
+      agents: state.agents.map((a) => ({ x: a.x, y: a.y, frozen: a.frozenUntil > t }))
+    };
+  }
+
+  return { newPuzzle, snapshot };
 }

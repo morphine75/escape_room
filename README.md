@@ -126,8 +126,9 @@ above the board (no pop-up notifications over the controls).
   has **no players** (use *Vaciar sala* first). The code stays filled in, so **Crear sala**
   re-creates it with the same code.
 
-- **👁️ per player** (roster): opens a live view of what that player's phone is showing
-  (current screen + key game data, updated every ~0.5 s). The phone only sends data while
+- **👁️ per player** (roster): opens a live view of what that player's phone is showing:
+  a visual replica of the current screen (maze, letters, curve, towers, robot grid…) plus
+  the key game data, updated every ~0.5 s. The phone only sends data while
   someone is watching it.
 - **🗑️ per player** (roster): removes one player from the room; their phone returns to the
   registration screen. Nameless records are flagged **⚠️ sin nombre** so stray entries can be

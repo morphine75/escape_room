@@ -235,6 +235,175 @@ function watchRows(d) {
   }
 }
 
+// --- Visual replicas (stage 2) -------------------------------------------------
+// Each one redraws, from the published snapshot, what the phone is showing.
+
+// "0110..." -> 2D boolean grid of size n x n.
+function parseGrid(str, n) {
+  const out = [];
+  for (let y = 0; y < n; y++) {
+    out.push([]);
+    for (let x = 0; x < n; x++) out[y].push(str[y * n + x] === "1");
+  }
+  return out;
+}
+
+function replicaLevel1(g) {
+  const n = g.size || Math.round(Math.sqrt((g.walls || "").length)) || 7;
+  const walls = parseGrid(g.walls || "", n);
+  const at = (list, x, y) => asList(list).find((p) => p && p.x === x && p.y === y);
+  let cells = "";
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      let tok = "";
+      const agent = at(g.agents, x, y);
+      if (g.hero && g.hero.x === x && g.hero.y === y) tok = "😎";
+      else if (agent) tok = `<span class="${agent.frozen ? "rp-frozen" : ""}">🕵🏻</span>`;
+      else if (g.phone && g.phone.x === x && g.phone.y === y) tok = "📞";
+      else if (at(g.projectiles, x, y)) tok = '<span class="rp-shot">•</span>';
+      cells += `<div class="rp-l1-cell${walls[y][x] ? " wall" : ""}">${tok}</div>`;
+    }
+  }
+  return `
+    <div class="rp-l1-hud"><span>🎯 Intento ${g.attempts ?? 1}</span><span>${escapeHtml(g.status || "")}</span></div>
+    <div class="rp-l1" style="--n:${n}">${cells}</div>
+    <div class="rp-l1-uses"><span class="fire">🔫 ${g.ammo ?? 0}</span><span class="bypass">⚔️ ${g.bypass ?? 0}</span><span class="encrypt">🧊 ${g.encrypt ?? 0}</span></div>`;
+}
+
+function replicaSerif(g) {
+  const cells = asList(g.cells)
+    .map((c) =>
+      `<div class="rp-serif-cell${c.h ? " hit" : ""}${c.s ? " is-serif" : ""}" style="font-family:${escapeHtml(c.f || "serif")}">${escapeHtml(c.l || "")}</div>`
+    )
+    .join("");
+  return `
+    <div class="rp-top"><span>⏱️ ${g.time ?? "—"} s</span><span>❌ ${g.errors ?? 0}/${g.maxErrors ?? 2}</span><span>🎯 ${g.score ?? 0}</span></div>
+    <div class="rp-serif">${cells}</div>
+    <p class="rp-note">El punto verde marca las letras con serifa (solo lo ve el coordinador).</p>`;
+}
+
+function replicaVector(g) {
+  if (!g.start || !g.end) return "";
+  const W = 100;
+  const H = Math.round(W / (g.aspect || 0.75));
+  const P = (p) => `${(p.x * W).toFixed(1)} ${(p.y * H).toFixed(1)}`;
+  const t = asList(g.targets);
+  const nd = asList(g.nodes);
+  const pts = asList(g.points);
+  if (t.length < 2 || nd.length < 2) return "";
+  const curve = (c) => `M ${P(g.start)} C ${P(c[0])}, ${P(c[1])}, ${P(g.end)}`;
+  const handles = (c, cls) =>
+    `<line class="${cls}" x1="${g.start.x * W}" y1="${g.start.y * H}" x2="${c[0].x * W}" y2="${c[0].y * H}"/>` +
+    `<line class="${cls}" x1="${g.end.x * W}" y1="${g.end.y * H}" x2="${c[1].x * W}" y2="${c[1].y * H}"/>`;
+  const dots = nd
+    .map((n, i) => {
+      const ok = g.finished || pts[i] >= 85;
+      return `<circle cx="${n.x * W}" cy="${n.y * H}" r="3.2" class="${ok ? "ok" : "bad"}"/>` +
+        `<text x="${n.x * W}" y="${n.y * H + 1.3}">${i + 1}</text>`;
+    })
+    .join("");
+  const targetsMk = g.finished ? "" : t.map((p) => `<circle cx="${p.x * W}" cy="${p.y * H}" r="1.4" class="tgt"/>`).join("");
+  const anchors = [g.start, g.end].map((a) => `<rect x="${a.x * W - 1.4}" y="${a.y * H - 1.4}" width="2.8" height="2.8" class="anchor"/>`).join("");
+  return `
+    <div class="rp-top"><span>✏️ Vector Adjust</span><span>Precisión: ${g.precision ?? 0} %</span></div>
+    <svg class="rp-vector" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+      ${handles(t, "h-target")}
+      <path d="${curve(t)}" class="c-target"/>
+      ${targetsMk}
+      ${handles(nd, "h-cur")}
+      <path d="${curve(nd)}" class="c-cur${g.finished ? " done" : ""}"/>
+      ${anchors}${dots}
+    </svg>`;
+}
+
+const DISK_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#0ea5e9", "#8b5cf6"];
+function replicaHanoi(g) {
+  const towers = [0, 1, 2].map((i) => (asList(g.towers)[i] || "").split(" ").filter(Boolean).map(Number));
+  const maxDisk = Math.max(4, ...towers.flat());
+  const cols = towers
+    .map((disks, i) => {
+      const html = disks
+        .map((d, k) => {
+          const lifted = g.selected === i && k === disks.length - 1;
+          return `<span class="rp-disk${lifted ? " lifted" : ""}" style="width:${30 + (d / maxDisk) * 65}%;background:${DISK_COLORS[d - 1] || "#64748b"}">${d}</span>`;
+        })
+        .join("");
+      return `<div class="rp-tower${g.selected === i ? " selected" : ""}"><span class="rp-tower-label">${["Servidor A", "Buffer B", "Servidor C"][i]}</span><span class="rp-peg"></span><div class="rp-stack">${html}</div></div>`;
+    })
+    .join("");
+  return `
+    <div class="rp-top"><span>🗼 Torres de Hanoi</span><span>Mov. ${g.moves ?? 0} · Óptimo ${g.optimal ?? "—"}</span></div>
+    <div class="rp-hanoi">${cols}</div>
+    <p class="rp-msg">${escapeHtml(g.msg || "")}</p>`;
+}
+
+const ROBOT_ARROWS = ["⬆️", "➡️", "⬇️", "⬅️"];
+const ROBOT_SHORT = { forward: "⬆️", left: "↩️", right: "↪️" };
+function replicaRobot(g) {
+  const n = Math.round(Math.sqrt((g.walls || "").length)) || 6;
+  const walls = parseGrid(g.walls || "", n);
+  let cells = "";
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      let cls = "rp-robot-cell";
+      let txt = "";
+      if (g.robot && g.robot.x === x && g.robot.y === y) {
+        cls += " bot";
+        txt = ROBOT_ARROWS[g.robot.dir] || "🤖";
+      } else if (x === n - 1 && y === n - 1) {
+        cls += " goal";
+        txt = "🏁";
+      } else if (walls[y][x]) cls += " wall";
+      if (g.crash && g.crash.x === x && g.crash.y === y) cls += " crash";
+      cells += `<div class="${cls}">${txt}</div>`;
+    }
+  }
+  const chips = (g.program || "")
+    .split(",")
+    .filter(Boolean)
+    .map((c, i) => `<span class="rp-chip${i === g.active ? " active" : ""}${i === g.error ? " error" : ""}">${i + 1}. ${ROBOT_SHORT[c] || c}</span>`)
+    .join("");
+  return `
+    <div class="rp-top"><span>🤖 Robot Ciego${g.running ? " · ▶️ ejecutando" : ""}</span><span>Comandos: ${g.commands ?? 0}</span></div>
+    <div class="rp-robot" style="--n:${n}">${cells}</div>
+    <p class="rp-msg">${escapeHtml(g.msg || "")}</p>
+    <div class="rp-chips">${chips || '<em class="muted">Sin comandos</em>'}</div>`;
+}
+
+function replicaWait(w) {
+  const m = /(\d+)\s*\/\s*(\d+)/.exec((w && w.count) || "");
+  const pct = m && Number(m[2]) ? Math.min(100, (Number(m[1]) / Number(m[2])) * 100) : 0;
+  return `
+    <div class="rp-card">
+      <h3>${escapeHtml((w && w.title) || "Espera grupal")}</h3>
+      <p><strong>${escapeHtml((w && w.count) || "")}</strong></p>
+      <div class="progress"><span style="width:${pct}%"></span></div>
+    </div>`;
+}
+
+const SIMPLE_SCREENS = {
+  "screen-register": ["📝", "En la pantalla de registro"],
+  "screen-lobby": ["⏳", "En el lobby, esperando que empiece la partida"],
+  "screen-victory": ["🎉", "Pantalla de victoria: el equipo completó la misión"]
+};
+
+// Visual replica of the screen the phone is showing ("" if none).
+function watchReplica(d) {
+  const g = d.game || {};
+  switch (d.screen) {
+    case "screen-level1": return `<div class="rp rp-matrix">${replicaLevel1(g)}</div>`;
+    case "screen-serif": return `<div class="rp">${replicaSerif(g)}</div>`;
+    case "screen-vector": return `<div class="rp">${replicaVector(g)}</div>`;
+    case "screen-hanoi": return `<div class="rp">${replicaHanoi(g)}</div>`;
+    case "screen-robot": return `<div class="rp">${replicaRobot(g)}</div>`;
+    case "screen-wait": return `<div class="rp">${replicaWait(d.wait)}</div>`;
+    default: {
+      const s2 = SIMPLE_SCREENS[d.screen];
+      return s2 ? `<div class="rp rp-card"><div class="rp-big">${s2[0]}</div><p>${s2[1]}</p></div>` : "";
+    }
+  }
+}
+
 function renderWatch() {
   if (!watch.pid) return;
   const body = $("#watch-body");
@@ -252,10 +421,14 @@ function renderWatch() {
   const rows = watchRows(d)
     .map(([k, v]) => `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(v ?? "—")}</td></tr>`)
     .join("");
+  // Keep the "Datos" section open/closed across the 2 Hz redraws.
+  const details = body.querySelector("details");
+  if (details) watch.dataOpen = details.open;
   body.innerHTML = `
     <p class="watch-screen">${escapeHtml(SCREEN_LABELS[d.screen] || d.screen || "—")}</p>
     ${warnings.map((w) => `<p class="watch-warn">${escapeHtml(w)}</p>`).join("")}
-    ${rows ? `<table class="watch-table">${rows}</table>` : ""}
+    ${watchReplica(d)}
+    ${rows ? `<details class="watch-data"${watch.dataOpen ? " open" : ""}><summary>Datos</summary><table class="watch-table">${rows}</table></details>` : ""}
     <p class="muted watch-age">Actualizado hace ${age} s</p>`;
 }
 

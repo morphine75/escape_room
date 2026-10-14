@@ -82,6 +82,8 @@ export function initRobot({ onComplete } = {}) {
   let running = false;
   let finished = false;
   let runId = 0; // invalidates an animation in progress on restart
+  // What the program list / grid currently highlight (for the coordinator's monitor).
+  const view = { active: -1, error: -1, crash: null };
 
   // Cells are created once; render() only updates their classes / content.
   const cells = [];
@@ -100,6 +102,7 @@ export function initRobot({ onComplete } = {}) {
   }
 
   function renderGrid(crash = null) {
+    view.crash = crash;
     for (let y = 0; y < GRID; y++) {
       for (let x = 0; x < GRID; x++) {
         const c = cells[y * GRID + x];
@@ -122,6 +125,8 @@ export function initRobot({ onComplete } = {}) {
   }
 
   function renderProgram(active = -1, error = -1) {
+    view.active = active;
+    view.error = error;
     listEl.innerHTML = "";
     if (!program.length) {
       const em = document.createElement("em");
@@ -252,7 +257,12 @@ export function initRobot({ onComplete } = {}) {
       running,
       finished,
       robot: { ...robot },
-      msg: msgEl.textContent
+      msg: msgEl.textContent,
+      // Visual replica (dashboard stage 2).
+      walls: walls.map((row) => row.map((w) => (w ? 1 : 0)).join("")).join(""),
+      active: view.active,
+      error: view.error,
+      crash: view.crash
     };
   }
 

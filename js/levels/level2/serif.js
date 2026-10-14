@@ -50,7 +50,13 @@ export function initSerif({ onComplete }) {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "serif-cell";
-      btn.style.fontFamily = isSerif ? rand(SERIF_FONTS) : rand(SANS_FONTS);
+      // Always end with the generic family: a font the device lacks (Android
+      // has no Helvetica / Verdana / Segoe UI) must fall back to the RIGHT kind,
+      // otherwise the browser default (often a serif) would show a "sans" letter
+      // with serifs and the player's correct choice would count as an error.
+      btn.style.fontFamily = isSerif
+        ? `${rand(SERIF_FONTS)}, serif`
+        : `${rand(SANS_FONTS)}, sans-serif`;
       btn.textContent = rand(LETTERS);
       btn.dataset.serif = isSerif ? "1" : "0";
       if (isSerif) remainingSerifs++;
@@ -125,7 +131,21 @@ export function initSerif({ onComplete }) {
   reset();
   // Key live data for the coordinator's monitor (js/monitor.js).
   function snapshot() {
-    return { time: Math.max(0, remainingTime), score, errors, maxErrors: MAX_ERRORS, remaining: remainingSerifs, finished };
+    const cells = [...gridEl.children].map((btn) => ({
+      l: btn.textContent,
+      f: btn.style.fontFamily,
+      s: btn.dataset.serif === "1",
+      h: btn.classList.contains("hit")
+    }));
+    return {
+      time: Math.max(0, remainingTime),
+      score,
+      errors,
+      maxErrors: MAX_ERRORS,
+      remaining: remainingSerifs,
+      finished,
+      cells
+    };
   }
 
   return { restart: reset, snapshot };

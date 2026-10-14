@@ -14,7 +14,7 @@ sequenceDiagram
   loop Cada 0,5 s (si cambió) + latido cada 4 s
     P->>FB: set(live/.../state, {pantalla, datos del juego, hidden, seq})
     FB-->>D: estado nuevo
-    D->>C: Modal: pantalla actual + datos clave en vivo
+    D->>C: Modal: réplica visual de la pantalla + datos clave en vivo
   end
   C->>D: Cierra el modal (✕, Esc o clic afuera)
   D->>FB: remove(watchers/dash_x)

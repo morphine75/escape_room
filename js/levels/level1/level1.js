@@ -572,7 +572,11 @@ export function initLevel1({ onComplete } = {}) {
       solved: state.solved,
       hero: { x: state.hero.x, y: state.hero.y },
       phone: { x: state.phone.x, y: state.phone.y },
-      agents: state.agents.map((a) => ({ x: a.x, y: a.y, frozen: a.frozenUntil > t }))
+      agents: state.agents.map((a) => ({ x: a.x, y: a.y, frozen: a.frozenUntil > t })),
+      // Visual replica (dashboard stage 2): maze as "0/1" rows + projectiles.
+      size: state.size,
+      walls: state.walls ? state.walls.map((row) => row.map((w) => (w ? 1 : 0)).join("")).join("") : "",
+      projectiles: state.projectiles.map((p) => ({ x: p.x, y: p.y }))
     };
   }
 

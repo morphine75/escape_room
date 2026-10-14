@@ -273,7 +273,18 @@ export function initVector({ onComplete }) {
 
   // Key live data for the coordinator's monitor (js/monitor.js).
   function snapshot() {
-    return { precision: finished ? Number(precisionEl.textContent) : precision(), points: precisions(), finished };
+    const r = (v) => Math.round(v * 1000) / 1000;
+    const pt = (p) => ({ x: r(p.x), y: r(p.y) });
+    return {
+      precision: finished ? Number(precisionEl.textContent) : precision(),
+      points: precisions(),
+      finished,
+      aspect: size.h ? r(size.w / size.h) : 1,
+      start: pt(shape.start),
+      end: pt(shape.end),
+      targets: shape.targets.map(pt),
+      nodes: nodes.map(pt)
+    };
   }
 
   return { restart, snapshot };

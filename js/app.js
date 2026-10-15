@@ -40,6 +40,7 @@ const state = {
   assigning: false,
   roomsUnsub: null, // live room list, only while the registration screen is shown
   roomsData: null,
+  roomsTimeout: 0,
   presenceFor: null, // "roomId/playerId" whose presence is currently armed
   unsub: null
 };
@@ -74,16 +75,48 @@ function showRegister() {
 // Only active while registering: it reads the whole rooms node.
 function startRoomList() {
   if (state.roomsUnsub) return;
+  // If the list does not arrive soon (no signal), offer typing the code too.
+  clearTimeout(state.roomsTimeout);
+  state.roomsTimeout = setTimeout(() => {
+    if (!state.roomsData) showManualRoom("La lista de salas tarda en cargar: podés escribir el código.");
+  }, 6000);
   state.roomsUnsub = subscribeRooms(
     (rooms) => {
+      clearTimeout(state.roomsTimeout);
       state.roomsData = rooms;
       renderRoomOptions();
     },
-    (err) => toast("No se pudo cargar la lista de salas: " + err.message, "error")
+    (err) => {
+      // e.g. PERMISSION_DENIED when database.rules.json was not re-published:
+      // fall back to typing the room code so nobody is stuck.
+      clearTimeout(state.roomsTimeout);
+      state.roomsUnsub = null;
+      console.warn("Room list unavailable:", err && err.message);
+      showManualRoom("No se pudo cargar la lista de salas: escribí el código de tu sala.");
+    }
   );
 }
 
+// Fallback: hide the dropdown (if it has no data) and show the code input.
+function showManualRoom(message) {
+  const select = $("#reg-room");
+  const input = $("#reg-room-code");
+  if (!state.roomsData) select.classList.add("hidden");
+  input.classList.remove("hidden");
+  $("#reg-join").disabled = false;
+  if (message) toast(message, "warning", 5000);
+}
+
+// Room chosen in the dropdown, or typed in the fallback input.
+function chosenRoom() {
+  const select = $("#reg-room");
+  const input = $("#reg-room-code");
+  if (!input.classList.contains("hidden") && input.value.trim()) return input.value;
+  return select.classList.contains("hidden") ? "" : select.value;
+}
+
 function stopRoomList() {
+  clearTimeout(state.roomsTimeout);
   if (state.roomsUnsub) state.roomsUnsub();
   state.roomsUnsub = null;
 }
@@ -120,19 +153,21 @@ function renderRoomOptions() {
   if (open.includes(previous)) select.value = previous;
   else if (open.length === 1) select.value = open[0];
   else select.value = "";
+  // Rooms listed: the dropdown is the way in (hide the fallback input).
+  select.classList.remove("hidden");
+  $("#reg-room-code").classList.add("hidden");
   $("#reg-join").disabled = !open.length;
 }
 
 function wireRegister() {
   const joinBtn = $("#reg-join");
-  const roomInput = $("#reg-room");
   const nameInput = $("#reg-name");
 
   const session = loadSession();
   if (session.name) nameInput.value = session.name;
 
   joinBtn.addEventListener("click", async () => {
-    const roomId = normalizeRoomId(roomInput.value);
+    const roomId = normalizeRoomId(chosenRoom());
     const name = nameInput.value.trim();
     if (!roomId) { toast("Elegí la sala de tu grupo", "warning"); return; }
     if (!name) { toast("Ingresá tu nombre", "warning"); return; }

@@ -30,6 +30,8 @@
       <select id="reg-room" class="input">
         <option value="">Cargando salas…</option>
       </select>
+      <!-- Fallback when the room list cannot be read (rules not published / no signal) -->
+      <input id="reg-room-code" class="input hidden" placeholder="Código de sala, ej. SALA-101" autocomplete="off" autocapitalize="characters" />
       <label for="reg-name">Tu nombre o nick</label>
       <input id="reg-name" class="input" placeholder="Neo_404" maxlength="16" autocomplete="off" />
       <button id="reg-join" class="btn">Entrar</button>

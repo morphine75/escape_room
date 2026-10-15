@@ -60,6 +60,9 @@ but insecure. Paste it into **Realtime Database → Rules** for a quick start, o
 
 It also **rejects player records without a `name`**, so a stray write to a removed player
 (e.g. a delayed `onDisconnect`) can never re-create it as a nameless "ghost" player.
+Reading the whole `rooms` node is allowed (`"rooms": { ".read": true }`): the players'
+room dropdown and the dashboard's room list need it. Without it the list stays empty and the
+registration screen falls back to typing the room code.
 The `live` node holds the coordinator's "👁️ Ver pantalla" data (see the design doc, decision #20).
 **Re-publish the rules in the Firebase console whenever this file changes.**
 

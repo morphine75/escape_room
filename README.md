@@ -85,7 +85,9 @@ so a simple HTTP host is enough.
 ## How a round works
 
 1. Coordinator opens `dashboard.html`, creates a room and sets `N` (required players).
-2. Players open `index.html`, enter the room code and their name → realtime lobby.
+2. Players open `index.html`, **pick their room from a dropdown** (open rooms, updated live,
+   with their player count; rooms already playing are shown disabled) and type their name →
+   realtime lobby.
 3. Coordinator presses **Iniciar partida**.
 4. Everyone plays **Nivel 1 (Matrix Protocol)** individually: a real-time 7×7 maze
    arcade where they must reach the wandering phone booth 📞 while an agent 🕵🏻 chases

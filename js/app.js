@@ -5,7 +5,7 @@
 // coordinator action is needed. Screen choice is driven by the live room state.
 import "./nozoom.js"; // must run first: blocks pinch / double-tap / Ctrl zoom
 import { isConfigured } from "./firebase.js";
-import { subscribeRoom, activePlayers, everyoneCompleted } from "./sync.js";
+import { subscribeRoom, subscribeRooms, activePlayers, everyoneCompleted } from "./sync.js";
 import {
   joinRoom, markLevelComplete, completeLevel1, completeLevel2,
   trackPresence, stopPresence, normalizeRoomId
@@ -38,6 +38,8 @@ const state = {
   gamesToRestart: new Set(),
   gameStartedSeen: false,
   assigning: false,
+  roomsUnsub: null, // live room list, only while the registration screen is shown
+  roomsData: null,
   presenceFor: null, // "roomId/playerId" whose presence is currently armed
   unsub: null
 };
@@ -56,11 +58,70 @@ function boot() {
     state.name = session.name;
     startSubscription();
   } else {
-    showScreen("screen-register");
+    showRegister();
   }
 }
 
 // --- Registration ------------------------------------------------------------
+
+// Shows the registration screen and starts listening to the room list.
+function showRegister() {
+  showScreen("screen-register");
+  startRoomList();
+}
+
+// Live list of rooms for the "Sala" dropdown, so players never type the code.
+// Only active while registering: it reads the whole rooms node.
+function startRoomList() {
+  if (state.roomsUnsub) return;
+  state.roomsUnsub = subscribeRooms(
+    (rooms) => {
+      state.roomsData = rooms;
+      renderRoomOptions();
+    },
+    (err) => toast("No se pudo cargar la lista de salas: " + err.message, "error")
+  );
+}
+
+function stopRoomList() {
+  if (state.roomsUnsub) state.roomsUnsub();
+  state.roomsUnsub = null;
+}
+
+// Rooms in the lobby can be joined; rooms already playing are listed disabled
+// (joinRoom() rejects them anyway). Keeps the current choice; preselects the
+// last room used on this device, or the only open room.
+function renderRoomOptions() {
+  const select = $("#reg-room");
+  const rooms = state.roomsData || {};
+  const previous = select.value || loadSession().roomId || "";
+  const ids = Object.keys(rooms).sort();
+  const open = ids.filter((id) => rooms[id] && rooms[id].started !== true);
+  const playing = ids.filter((id) => rooms[id] && rooms[id].started === true);
+  const count = (id) => Object.keys(rooms[id].players || {}).length;
+  const label = (id) => `${id} · ${count(id)} jugador${count(id) === 1 ? "" : "es"}`;
+
+  select.innerHTML = "";
+  const add = (value, text, disabled = false) => {
+    const o = document.createElement("option");
+    o.value = value;
+    o.textContent = text;
+    o.disabled = disabled;
+    select.appendChild(o);
+  };
+  if (!open.length) {
+    add("", "No hay salas abiertas: esperá al coordinador", true);
+  } else if (open.length > 1) {
+    add("", "Elegí tu sala…", true);
+  }
+  open.forEach((id) => add(id, label(id)));
+  playing.forEach((id) => add(id, `${id} · en curso`, true));
+
+  if (open.includes(previous)) select.value = previous;
+  else if (open.length === 1) select.value = open[0];
+  else select.value = "";
+  $("#reg-join").disabled = !open.length;
+}
 
 function wireRegister() {
   const joinBtn = $("#reg-join");
@@ -68,19 +129,19 @@ function wireRegister() {
   const nameInput = $("#reg-name");
 
   const session = loadSession();
-  if (session.roomId) roomInput.value = session.roomId;
   if (session.name) nameInput.value = session.name;
 
   joinBtn.addEventListener("click", async () => {
     const roomId = normalizeRoomId(roomInput.value);
     const name = nameInput.value.trim();
-    if (!roomId) { toast("Ingresá el código de la sala", "warning"); return; }
+    if (!roomId) { toast("Elegí la sala de tu grupo", "warning"); return; }
     if (!name) { toast("Ingresá tu nombre", "warning"); return; }
 
     joinBtn.disabled = true;
     try {
       const res = await joinRoom(roomId, name);
       if (!res.ok) { toast(res.error, "error"); return; }
+      stopRoomList();
       state.roomId = roomId;
       state.playerId = res.playerId;
       state.name = name;
@@ -92,7 +153,10 @@ function wireRegister() {
     } catch (err) {
       toast("Error al unirse: " + err.message, "error");
     } finally {
-      joinBtn.disabled = false;
+      // Still on the registration screen (join failed): refresh the list,
+      // which also re-enables the button when there is an open room.
+      if (state.roomsUnsub) renderRoomOptions();
+      else joinBtn.disabled = false;
     }
   });
 }
@@ -115,7 +179,7 @@ function onData(data) {
     state.presenceFor = null;
     clearSession();
     toast("La sala no existe o fue cerrada", "error");
-    showScreen("screen-register");
+    showRegister();
     return;
   }
   state.data = data;
@@ -129,7 +193,7 @@ function onData(data) {
     state.presenceFor = null;
     clearSession();
     toast("Tu registro ya no está en la sala", "error");
-    showScreen("screen-register");
+    showRegister();
     return;
   }
 

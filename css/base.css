@@ -105,6 +105,17 @@ p { margin: 0 0 8px; }
      zoom back out). */
   font-size: max(16px, 1rem);
 }
+/* Dropdown (e.g. room list on the registration screen): same look as .input,
+   custom arrow, >= 16px so iOS does not zoom on focus. */
+select.input {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%2394a3b8' stroke-width='2'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+}
+select.input option:disabled { color: #64748b; }
 label { font-size: 0.85rem; color: var(--muted); }
 
 .badge {

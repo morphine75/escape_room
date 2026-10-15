@@ -25,9 +25,11 @@
   <section id="screen-register" class="screen active">
     <div class="card">
       <h1>Misión Cero</h1>
-      <p class="muted">Ingresá a la sala de tu grupo para empezar.</p>
-      <label for="reg-room">Código de sala</label>
-      <input id="reg-room" class="input" placeholder="SALA-101" autocomplete="off" autocapitalize="characters" />
+      <p class="muted">Elegí la sala de tu grupo para empezar.</p>
+      <label for="reg-room">Sala</label>
+      <select id="reg-room" class="input">
+        <option value="">Cargando salas…</option>
+      </select>
       <label for="reg-name">Tu nombre o nick</label>
       <input id="reg-name" class="input" placeholder="Neo_404" maxlength="16" autocomplete="off" />
       <button id="reg-join" class="btn">Entrar</button>

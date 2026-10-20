@@ -88,6 +88,8 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
 | `level_3_moves` | Moves used in Torres de Hanoi (optimum 15 with 4 disks). |
 | `level_4_completed` | Level 4 (Color) cleared: the six colour stages matched. |
 | `level_4_rounds` | Stage rounds played in Level 4 (6 = every stage matched at the first colour; each timeout adds one). |
+| `level_1_attempts` | Attempts used to clear Level 1 (ranking). |
+| `level_1_at` … `level_4_at` | Server time when each level was completed (ranking speed bonus). Set once: a repair after a refresh does not move it. |
 | `connected` | Presence flag maintained via `onDisconnect()`; `false` when the device drops offline. Armed by the client only after the live data confirms the player exists, re-armed if a network drop already set it to `false`, and cancelled when the player is removed (decision #16). |
 | `last_changed` | Timestamp (epoch) of the player's last update. |
 
@@ -548,11 +550,24 @@ Big-screen panel used by the facilitator and the only place with room-level cont
 * **Live monitor ("👁️ Ver pantalla"):** each roster row has a 👁️ button that opens a modal with what that player's phone is showing **right now**: the current screen (Lobby, Nivel 1, Espera grupal, Shape Type, Hanoi, Color, Victoria) and its key live data — Level 1: attempt, ammo / BYPASS / ENCRYPT left, status line, positions of the hero, phone and agent (❄ when frozen); Shape Type: precision of each control point; Hanoi: moves vs optimum and the disks on each tower (✋ lifted); wait screen: group progress. It also warns when the game is in the background or no data arrived for 10 s, and shows "Actualizado hace X s". The modal closes by itself if the player is removed.
   * **Visual replica (stage 2):** above the data (now a collapsible "Datos" table) the modal redraws what the phone shows, with the same look: Level 1 — the 7×7 maze with walls, hero, phone, agent (❄ glow when frozen) and projectiles, plus the HUD and the three power-up counters; Shape Type — an SVG of the target curve (dotted, with handles) and the player's curve with control points 1 and 2 (red / green); Hanoi — the three towers with coloured disks and the lifted one; Color — the stage and timer, three swatches (given colour, the player's pick and the correct answer, the latter coordinator-only) and the six stage chips; group wait — title, count and progress bar; lobby / registration / victory — a simple card. Snapshots carry the extra data for this (maze as a compact "0/1" string, normalised curve geometry and canvas aspect, colours), still well under 1 KB.
   * How it works (`js/monitor.js` + `dashboard.js`): the dashboard registers as a watcher under `live/{room}/{player}/watchers`; only then does that phone publish its snapshot every 0.5 s (if it changed, plus a 4 s heartbeat). Phones nobody watches send nothing. The data is stored outside `rooms/` so it is not broadcast to every player. Removing a player, wiping or deleting the room also clears its `live` data.
+* **🏆 Ranking (individual):** a live table below the roster — place (🥇🥈🥉), player, points per level (tooltip: base + performance + speed and finishing place) and total; the scoring rules are shown in a collapsible note. See section 8.5.
 * **Room management:** the setup screen lists every room (code, player count, status) with **Open** and **🗑️ Delete** actions, and the room view has **← Salas** (back to the list) and **🗑️ Eliminar sala**. A room can be deleted **only when it has no players** (wipe it first); the button is disabled otherwise, and the delete runs as a `transaction()` (`deleteRoomIfEmpty()` in `js/room.js`) that aborts if someone joined in the meantime. After deleting, the code stays in the input so the room can be **re-created** with the same code via **Crear sala**.
 
 Both reset actions require confirmation. When the room returns to the lobby, the players' open tabs follow automatically and each level **initialises fresh** on the next start: the level controllers are *restarted*, not re-created, so there are no duplicate event handlers and no page reload is needed.
 
 ---
+
+### 8.5. Individual Ranking
+
+Besides the group goal, every player earns points (`js/scoring.js`). Points are **computed from the stored results, never stored**, so the dashboard and every phone always agree. Per completed level:
+
+| Part | Points |
+|------|--------|
+| Base | 100 |
+| Performance (0-100) | L1: 100 at the 1st attempt, −20 per extra attempt · L2: precision 85 % → 0 … 100 % → 100 · L3: 100 with the optimal 15 moves, −10 per extra move · L4: 100 with no timeouts, −20 per extra colour round |
+| Speed | Order of completion of that level (`level_N_at`, server time): 1st +50, 2nd +35, 3rd +20, rest +10 |
+
+Maximum **1000** (4 × 250). Ties go to the player who finished their last level earlier. Shown live on the dashboard (🏆 Ranking card), as "⭐ Tus puntos: X · Puesto N de M" on every group-wait screen, and as a podium (top 5 + the player's own row) on the victory screen. Restart round clears `level_1_attempts` and the `level_N_at` times.
 
 ## ✅ 9. Resolved Design Decisions
 
@@ -585,3 +600,4 @@ Consolidated record of the design points that were previously left open, togethe
 | 23 | **Choosing the room** | Players had to type the room code (`SALA-101`), error-prone on a phone | The registration screen shows a **dropdown of rooms**, updated live: rooms in the lobby with their player count (the only open one is preselected, as is the room last used on that device), rooms already playing listed as disabled "en curso", and a clear message when no room is open. The list is only listened to while the registration screen is shown. It needs read access to the whole `rooms` node (`database.rules.json`: `"rooms": { ".read": true }`); if that read is denied or the list does not arrive within 6 s, a text field to type the room code appears as a fallback. |
 | 24 | **Static Level 1 maze** | Every capture generated a brand-new maze and BYPASS (3 uses, refilled each attempt) rebuilt it at will | The maze is generated **once per level** and stays the same after every capture (only the hacker, phone and agent go back to their starting positions; ammo and ENCRYPT refill). **BYPASS can reconfigure it only once per level**; the reconfigured maze then stays. A new round (coordinator reset) generates a new maze and restores BYPASS. |
 | 25 | **One game per level** | Levels 2 and 3 split the group into two games | **"I Shot The Serif" and "Robot Ciego" were removed**: everyone plays Shape Type in Level 2 and Torres de Hanoi in Level 3. The assignment transaction now stores `vector` / `hanoi`; `level_2_score` and `level_3_commands` are no longer used. |
+| 26 | **Individual ranking** | Only the group goal existed; a per-player score was requested | Points per level = 100 base + up to 100 for performance (attempts / precision / moves / colour rounds) + a speed bonus by finishing order (50 / 35 / 20 / 10). Computed client-side from the results (`js/scoring.js`), shown live on the dashboard, on the wait screens and on the victory podium. New fields: `level_1_attempts`, `level_N_at`. |

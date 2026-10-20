@@ -82,6 +82,7 @@ export async function joinRoom(roomId, rawName) {
     name,
     connected: true,
     level_1_completed: false,
+    level_1_attempts: 0,
     level_2_completed: false,
     level_2_game: null,
     level_2_precision: 0,
@@ -132,7 +133,8 @@ export async function clearLive(roomId, playerId) {
 
 // FR-2.3 / 7.3.3: persist an individual level completion.
 export async function markLevelComplete(roomId, playerId, level, extra = {}) {
-  const payload = { last_changed: serverTimestamp(), ...extra };
+  // level_N_at: server time of the completion, used for the ranking's speed bonus.
+  const payload = { last_changed: serverTimestamp(), [`level_${level}_at`]: serverTimestamp(), ...extra };
   if (level === 1) payload.level_1_completed = true;
   if (level === 2) payload.level_2_completed = true;
   if (level === 3) payload.level_3_completed = true;
@@ -156,9 +158,13 @@ const NEXT_GAMES = {
 // whatever order players finish in. `extra` holds level results (score, ...).
 async function completeAndAssign(roomId, playerId, level, extra = {}) {
   const next = NEXT_GAMES[level];
+  const atField = `level_${level}_at`;
+  let firstCompletion = true;
   await runTransaction(ref(db, `rooms/${roomId}/players`), (players) => {
     if (!players || !players[playerId]) return players; // retried with server data
     const me = players[playerId];
+    // A repair after a refresh must not move the completion time (ranking).
+    firstCompletion = !me[atField];
     if (next && !me[next.field]) {
       const counts = next.games.map(
         (g) => Object.entries(players).filter(([id, p]) => id !== playerId && p && p[next.field] === g).length
@@ -174,14 +180,14 @@ async function completeAndAssign(roomId, playerId, level, extra = {}) {
   // Separate write: server timestamps are not resolved inside transactions.
   // (Rejected by the rules if the player was removed meanwhile, so it cannot
   // create a ghost record.)
-  await update(ref(db, `rooms/${roomId}/players/${playerId}`), {
-    last_changed: serverTimestamp()
-  });
+  const after = { last_changed: serverTimestamp() };
+  if (firstCompletion) after[atField] = serverTimestamp();
+  await update(ref(db, `rooms/${roomId}/players/${playerId}`), after);
 }
 
 // Level 1 cleared -> assigns the Level 2 game (vector).
-export function completeLevel1(roomId, playerId) {
-  return completeAndAssign(roomId, playerId, 1);
+export function completeLevel1(roomId, playerId, extra) {
+  return completeAndAssign(roomId, playerId, 1, extra);
 }
 
 // Level 2 cleared (with its precision) -> assigns the Level 3 game (hanoi).

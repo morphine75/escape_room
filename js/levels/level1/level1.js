@@ -329,7 +329,7 @@ export function initLevel1({ onComplete } = {}) {
     stop();
     setStatus("¡Exploit ejecutado! Cabina alcanzada 📞", "success", 0);
     vibrate([30, 60, 30]);
-    onComplete && onComplete();
+    onComplete && onComplete({ attempts: state.attempts });
   }
 
   function onCaught() {

@@ -76,6 +76,37 @@
         </table>
       </div>
     </div>
+
+    <div class="card">
+      <h3>🏆 Ranking</h3>
+      <div class="roster-wrap">
+        <table class="roster ranking">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Jugador</th>
+              <th>L1</th>
+              <th>L2</th>
+              <th>L3</th>
+              <th>L4</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody id="dash-ranking"></tbody>
+        </table>
+      </div>
+      <details class="ranking-rules">
+        <summary>¿Cómo se calculan los puntos?</summary>
+        <p>Por cada nivel completado: <b>100</b> puntos base + hasta <b>100</b> por desempeño + bonus de <b>velocidad</b> según el orden de llegada en ese nivel (1.º +50, 2.º +35, 3.º +20, resto +10). Máximo: <b>1000</b>.</p>
+        <ul>
+          <li><b>Nivel 1:</b> 100 en el 1.er intento, −20 por cada intento extra.</li>
+          <li><b>Nivel 2:</b> según la precisión: 85 % → 0 … 100 % → 100.</li>
+          <li><b>Nivel 3:</b> 100 con los 15 movimientos óptimos, −10 por movimiento de más.</li>
+          <li><b>Nivel 4:</b> 100 sin tiempos vencidos, −20 por cada color vencido.</li>
+        </ul>
+        <p>Empate: gana quien terminó antes su último nivel.</p>
+      </details>
+    </div>
   </section>
 
   <!-- Live monitor: what a player's phone is showing ("👁️ Ver pantalla") -->

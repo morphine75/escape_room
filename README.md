@@ -106,7 +106,12 @@ so a simple HTTP host is enough.
    colour wheel with six stages — HUE, SATURATION, COMPLEMENTARY, ANALOGOUS, TRIADIC,
    TETRADIC. Each colour has a 20 s timer; when it runs out a new colour appears, until
    all six are matched.
-9. When every connected player completes Nivel 4, everyone sees the group-victory screen.
+9. When every connected player completes Nivel 4, everyone sees the group-victory screen,
+   with the **individual ranking** (podium + their own points).
+
+Besides the group goal there is an **individual ranking**: per level, 100 base points + up to
+100 for performance + a speed bonus by finishing order (max 1000). It is shown live on the
+dashboard (🏆 Ranking), on every wait screen ("Tus puntos · Puesto") and on the victory screen.
 
 ### Nivel 1 controls
 

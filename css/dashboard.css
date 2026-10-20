@@ -99,3 +99,12 @@
 .rp-cstep { padding: 3px; border-radius: 6px; border: 1px solid #d4d4d8; background: #fff; color: #71717a; font-size: 0.66rem; font-weight: 800; text-align: center; }
 .rp-cstep.current { border-color: #18181b; color: #18181b; }
 .rp-cstep.done { background: #18181b; color: #fff; border-color: #18181b; }
+
+/* Ranking */
+.ranking td, .ranking th { text-align: center; }
+.ranking td:nth-child(2), .ranking th:nth-child(2) { text-align: left; }
+.ranking tr.top td { font-weight: 700; }
+.ranking .ranking-total { font-weight: 800; color: var(--warning); font-size: 1rem; }
+.ranking-rules { margin-top: 10px; font-size: 0.85rem; color: var(--muted); }
+.ranking-rules summary { cursor: pointer; }
+.ranking-rules ul { margin: 6px 0; padding-left: 18px; }

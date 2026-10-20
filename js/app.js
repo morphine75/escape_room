@@ -17,6 +17,7 @@ import { initVector } from "./levels/level2/vector.js";
 import { initHanoi } from "./levels/level3/hanoi.js";
 import { initColor } from "./levels/level4/color.js";
 import { initRain } from "./digitalrain.js";
+import { ranking, MAX_POINTS } from "./scoring.js";
 import { startMonitor, stopMonitor } from "./monitor.js";
 
 const state = {
@@ -299,7 +300,7 @@ function onData(data) {
     renderWait(data, 4);
     return;
   }
-  renderVictory();
+  renderVictory(data);
 }
 
 const saveError = (e) => toast("No se pudo guardar el progreso: " + e.message, "error");
@@ -311,7 +312,7 @@ function ensureNextGame(level, extra = {}) {
   if (state.assigning) return;
   state.assigning = true;
   const done = level === 1
-    ? completeLevel1(state.roomId, state.playerId)
+    ? completeLevel1(state.roomId, state.playerId, extra)
     : completeLevel2(state.roomId, state.playerId, extra);
   done.catch(saveError).finally(() => {
     state.assigning = false;
@@ -351,7 +352,7 @@ function renderLevel1(data, me) {
 
   if (!state.level1Ctl) {
     state.level1Ctl = initLevel1({
-      onComplete: () => ensureNextGame(1)
+      onComplete: ({ attempts } = {}) => ensureNextGame(1, attempts ? { level_1_attempts: attempts } : {})
     });
     state.level1NeedsRestart = false;
   } else if (state.level1NeedsRestart) {
@@ -378,6 +379,15 @@ function renderWait(data, level) {
   $("#wait-count").textContent = `${done} / ${total} completaron`;
   $("#wait-bar").style.width = total ? Math.min(100, (done / total) * 100) + "%" : "0%";
   $("#wait-hint").textContent = WAIT_TEXT[level][1];
+  $("#wait-points").textContent = myPointsText(data);
+}
+
+// "Tus puntos: 380 · Puesto 2 de 5" (individual ranking, js/scoring.js).
+function myPointsText(data) {
+  const rows = ranking(data.players);
+  const me = rows.find((r) => r.id === state.playerId);
+  if (!me) return "";
+  return `⭐ Tus puntos: ${me.total} · Puesto ${me.rank} de ${rows.length}`;
 }
 
 // Shows a Level 2 / 3 mini-game: creates its controller the first time and
@@ -443,8 +453,33 @@ function liveState() {
   return live;
 }
 
-function renderVictory() {
+const MEDALS = ["🥇", "🥈", "🥉"];
+const TOP = 5;
+
+function renderVictory(data) {
   showScreen("screen-victory");
+  const rows = ranking(data.players);
+  const me = rows.find((r) => r.id === state.playerId);
+  $("#victory-points").textContent = me ? `Tus puntos: ${me.total} de ${MAX_POINTS} · Puesto ${me.rank} de ${rows.length}` : "";
+  // Top 5, plus this player's own row if they are further down.
+  const shown = rows.filter((r) => r.rank <= TOP || r.id === state.playerId);
+  const list = $("#victory-ranking");
+  list.innerHTML = "";
+  shown.forEach((r) => {
+    const li = document.createElement("li");
+    if (r.id === state.playerId) li.className = "me";
+    const pos = document.createElement("span");
+    pos.className = "pos";
+    pos.textContent = r.rank <= 3 ? MEDALS[r.rank - 1] : r.rank + ".";
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = r.name + (r.id === state.playerId ? " (vos)" : "");
+    const pts = document.createElement("span");
+    pts.className = "pts";
+    pts.textContent = String(r.total);
+    li.append(pos, name, pts);
+    list.appendChild(li);
+  });
 }
 
 boot();

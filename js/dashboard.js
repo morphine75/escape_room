@@ -9,6 +9,7 @@ import {
 import { createRoom, deleteRoomIfEmpty, removePlayer, clearLive, normalizeRoomId } from "./room.js";
 import { subscribeRoom, subscribeRooms, everyoneCompleted } from "./sync.js";
 import { saveHostRoom, loadHostRoom, clearHostRoom, randomId } from "./session.js";
+import { ranking } from "./scoring.js";
 import { showScreen, toast, $ } from "./ui.js";
 
 const state = { roomId: null, data: null, unsub: null, transitioning: false };
@@ -532,6 +533,7 @@ function render(data) {
   deleteBtn.title = total > 0 ? "Vaciá la sala antes de eliminarla" : "";
 
   renderRoster(players);
+  renderRanking(players);
 
   // The watched player was removed (or the room wiped): close the monitor.
   if (watch.pid && !players[watch.pid]) {
@@ -580,6 +582,35 @@ function renderRoster(players) {
     );
     tbody.appendChild(tr);
   });
+}
+
+// Live individual ranking (js/scoring.js). Each level cell shows its points
+// with the breakdown (base + performance + speed) as a tooltip.
+const MEDALS = ["🥇", "🥈", "🥉"];
+function renderRanking(players) {
+  const tbody = $("#dash-ranking");
+  const rows = ranking(players);
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="muted">Todavía no hay jugadores.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows
+    .map((r) => {
+      const cells = r.levels
+        .map((l) =>
+          l.done
+            ? `<td title="${l.base} base + ${l.perf} desempeño + ${l.speed} velocidad (${l.place}.º en terminar)">${l.points}</td>`
+            : '<td class="muted">—</td>'
+        )
+        .join("");
+      return `<tr class="${r.rank <= 3 && r.total > 0 ? "top" : ""}">
+        <td>${r.total > 0 && r.rank <= 3 ? MEDALS[r.rank - 1] : r.rank}</td>
+        <td>${escapeHtml(r.name)}</td>
+        ${cells}
+        <td class="ranking-total">${r.total}</td>
+      </tr>`;
+    })
+    .join("");
 }
 
 async function deletePlayer(pid, label) {
@@ -631,6 +662,8 @@ async function resetRoom(clearPlayers) {
         updates[`${pid}/level_3_moves`] = 0;
         updates[`${pid}/level_4_completed`] = false;
         updates[`${pid}/level_4_rounds`] = 0;
+        updates[`${pid}/level_1_attempts`] = 0;
+        [1, 2, 3, 4].forEach((n) => (updates[`${pid}/level_${n}_at`] = null));
       });
       if (Object.keys(updates).length) {
         await update(ref(db, `rooms/${state.roomId}/players`), updates);

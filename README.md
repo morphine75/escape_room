@@ -22,8 +22,8 @@ escape_room/
 │   ├── dashboard.js         # coordinator controller
 │   └── levels/
 │       ├── level1/          # generator.js + level1.js (Matrix Protocol)
-│       ├── level2/          # serif.js + vector.js
-│       ├── level3/          # hanoi.js + robot.js (Laboratorio de Algoritmos)
+│       ├── level2/          # vector.js (Shape Type)
+│       ├── level3/          # hanoi.js (Torres de Hanoi)
 │       └── level4/          # color.js (Color: armonías de color)
 ├── database.rules.json   # Firebase rules (see warning below)
 └── plan/                 # construction plan
@@ -94,18 +94,14 @@ so a simple HTTP host is enough.
 3. Coordinator presses **Iniciar partida**.
 4. Everyone plays **Nivel 1 (Matrix Protocol)** individually: a real-time 7×7 maze
    arcade where they must reach the wandering phone booth 📞 while an agent 🕵🏻 chases
-   them (see controls below). Getting caught restarts with a new maze, attempts are unlimited.
+   them (see controls below). The maze is static: getting caught sends you back to the start of
+   the same maze (attempts are unlimited), and BYPASS can reconfigure it only once.
 5. A player who clears Nivel 1 waits for the group; when **every connected player** is done,
-   Nivel 2 starts **by itself on every phone** — no coordinator action, the dashboard does not
-   even need to be open (a player alone in the room advances immediately). Each client assigns
-   itself `serif` or `vector` (whichever has fewer players so far, keeping the split balanced).
-6. Each player solves their Nivel 2 mini-game. In "I Shot The Serif" only **2 errors** are
-   allowed: the 2nd wrong tap restarts the round. In "Shape Type" the curve is **random every round**
-   and has **two control points** to drag into place (≥ 85% each). Finishing it assigns the Nivel 3 game
-   (`hanoi` or `robot`, balanced the same way).
-7. When every connected player completes Nivel 2, **Nivel 3 (Laboratorio de Algoritmos)**
-   starts by itself: **Torres de Hanoi** (move 4 disks A → C with stack rules) or
-   **Robot Ciego** (write the whole program, then run it; a crash highlights the bad command).
+   the next level starts **by itself on every phone** — no coordinator action, the dashboard does
+   not even need to be open (a player alone in the room advances immediately).
+6. **Nivel 2 — Shape Type** (everyone): a random curve with two control points to drag into
+   place (≥ 85% each).
+7. **Nivel 3 — Torres de Hanoi** (everyone): move 4 disks A → C with stack rules.
 8. When every connected player completes Nivel 3, **Nivel 4 (Color)** starts for everyone: a
    colour wheel with six stages — HUE, SATURATION, COMPLEMENTARY, ANALOGOUS, TRIADIC,
    TETRADIC. Each colour has a 20 s timer; when it runs out a new colour appears, until
@@ -118,10 +114,10 @@ so a simple HTTP host is enough.
 |-------|--------|
 | Arrow keys / WASD / on-screen D-pad | Move (keeps moving in the chosen direction, Pac-Man style) |
 | Space / `F` / 🔫 DISPARAR | Fire a projectile in the facing direction: freezes the agent it hits for 4 s (3 rounds) |
-| `B` / ⚔️ BYPASS | Rebuild the maze live and move the phone (3 uses, 1.5 s cooldown) |
+| `B` / ⚔️ BYPASS | Rebuild the maze live and move the phone (**1 use per level**; the new maze stays) |
 | `E` / 🧊 ENCRYPT | Freeze the nearest agent for 5 s (1 use) |
 
-Ammo and uses refill on every new attempt. All Nivel 1 messages appear in the status line
+Ammo and ENCRYPT refill on every new attempt; BYPASS does not. All Nivel 1 messages appear in the status line
 above the board (no pop-up notifications over the controls).
 
 ### Coordinator controls
@@ -137,7 +133,7 @@ above the board (no pop-up notifications over the controls).
   re-creates it with the same code.
 
 - **👁️ per player** (roster): opens a live view of what that player's phone is showing:
-  a visual replica of the current screen (maze, letters, curve, towers, robot grid…) plus
+  a visual replica of the current screen (maze, curve, towers, colour wheel…) plus
   the key game data, updated every ~0.5 s. The phone only sends data while
   someone is watching it.
 - **🗑️ per player** (roster): removes one player from the room; their phone returns to the
@@ -154,4 +150,4 @@ on the next **Iniciar partida** — no page reload needed.
 See `system_design_architecture.md` section 9 (grid size, Serif timeout, Shape Type
 tolerance, single writer for `current_phase`, Level 2 assignment, no Phase 3, presence,
 reset / replay, Level 1 digital rain, the real-time Level 1 arcade, automatic client-side
-group progression, 1 agent and status-line messages in Nivel 1, the 2-error limit in Serif, Nivel 3 and Nivel 4).
+group progression, 1 agent and status-line messages in Nivel 1, Nivel 3, Nivel 4, the static Nivel 1 maze and one game per level).

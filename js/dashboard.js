@@ -119,10 +119,8 @@ const SCREEN_LABELS = {
   "screen-lobby": "Lobby (esperando el inicio)",
   "screen-level1": "Nivel 1 · Matrix Protocol",
   "screen-wait": "Espera grupal",
-  "screen-serif": "Nivel 2 · I Shot The Serif",
   "screen-vector": "Nivel 2 · Shape Type",
   "screen-hanoi": "Nivel 3 · Torres de Hanoi",
-  "screen-robot": "Nivel 3 · Robot Ciego",
   "screen-color": "Nivel 4 · Color",
   "screen-victory": "Victoria 🎉"
 };
@@ -193,14 +191,6 @@ function watchRows(d) {
         ["Agente 🕵🏻", asList(g.agents).map((a) => cell(a) + (a.frozen ? " ❄ congelado" : "")).join(" · ") || "—"],
         ["Completado", yesNo(g.solved)]
       ];
-    case "screen-serif":
-      return [
-        ["Tiempo", `${g.time ?? "—"} s`],
-        ["Puntaje", g.score],
-        ["Errores", `${g.errors ?? 0} / ${g.maxErrors ?? 2}`],
-        ["Serifas restantes", g.remaining],
-        ["Completado", yesNo(g.finished)]
-      ];
     case "screen-vector":
       return [
         ["Precisión (peor punto)", `${g.precision ?? 0} %`],
@@ -217,18 +207,6 @@ function watchRows(d) {
         ["Mensaje", g.msg],
         ["Completado", yesNo(g.finished)]
       ];
-    case "screen-robot": {
-      const names = { forward: "⬆️", left: "↩️", right: "↪️" };
-      const prog = (g.program || "").split(",").filter(Boolean).map((c) => names[c] || c);
-      return [
-        ["Comandos", g.commands ?? 0],
-        ["Programa", prog.join(" ") || "—"],
-        ["Ejecutando", yesNo(g.running)],
-        ["Robot", g.robot ? cell(g.robot) : "—"],
-        ["Mensaje", g.msg],
-        ["Completado", yesNo(g.finished)]
-      ];
-    }
     case "screen-color": {
       const pickTxt = g.pick === undefined || g.pick < 0 ? "sin elegir" : g.sat ? `${g.pick} % sat.` : `${g.pick}°`;
       const targetTxt = g.target ? (g.sat ? `${g.target.s} % sat.` : `${g.target.h}°`) : "—";
@@ -282,18 +260,6 @@ function replicaLevel1(g) {
     <div class="rp-l1-hud"><span>🎯 Intento ${g.attempts ?? 1}</span><span>${escapeHtml(g.status || "")}</span></div>
     <div class="rp-l1" style="--n:${n}">${cells}</div>
     <div class="rp-l1-uses"><span class="fire">🔫 ${g.ammo ?? 0}</span><span class="bypass">⚔️ ${g.bypass ?? 0}</span><span class="encrypt">🧊 ${g.encrypt ?? 0}</span></div>`;
-}
-
-function replicaSerif(g) {
-  const cells = asList(g.cells)
-    .map((c) =>
-      `<div class="rp-serif-cell${c.h ? " hit" : ""}${c.s ? " is-serif" : ""}" style="font-family:${escapeHtml(c.f || "serif")}">${escapeHtml(c.l || "")}</div>`
-    )
-    .join("");
-  return `
-    <div class="rp-top"><span>⏱️ ${g.time ?? "—"} s</span><span>❌ ${g.errors ?? 0}/${g.maxErrors ?? 2}</span><span>🎯 ${g.score ?? 0}</span></div>
-    <div class="rp-serif">${cells}</div>
-    <p class="rp-note">El punto verde marca las letras con serifa (solo lo ve el coordinador).</p>`;
 }
 
 function replicaVector(g) {
@@ -351,39 +317,6 @@ function replicaHanoi(g) {
     <p class="rp-msg">${escapeHtml(g.msg || "")}</p>`;
 }
 
-const ROBOT_ARROWS = ["⬆️", "➡️", "⬇️", "⬅️"];
-const ROBOT_SHORT = { forward: "⬆️", left: "↩️", right: "↪️" };
-function replicaRobot(g) {
-  const n = Math.round(Math.sqrt((g.walls || "").length)) || 6;
-  const walls = parseGrid(g.walls || "", n);
-  let cells = "";
-  for (let y = 0; y < n; y++) {
-    for (let x = 0; x < n; x++) {
-      let cls = "rp-robot-cell";
-      let txt = "";
-      if (g.robot && g.robot.x === x && g.robot.y === y) {
-        cls += " bot";
-        txt = ROBOT_ARROWS[g.robot.dir] || "🤖";
-      } else if (x === n - 1 && y === n - 1) {
-        cls += " goal";
-        txt = "🏁";
-      } else if (walls[y][x]) cls += " wall";
-      if (g.crash && g.crash.x === x && g.crash.y === y) cls += " crash";
-      cells += `<div class="${cls}">${txt}</div>`;
-    }
-  }
-  const chips = (g.program || "")
-    .split(",")
-    .filter(Boolean)
-    .map((c, i) => `<span class="rp-chip${i === g.active ? " active" : ""}${i === g.error ? " error" : ""}">${i + 1}. ${ROBOT_SHORT[c] || c}</span>`)
-    .join("");
-  return `
-    <div class="rp-top"><span>🤖 Robot Ciego${g.running ? " · ▶️ ejecutando" : ""}</span><span>Comandos: ${g.commands ?? 0}</span></div>
-    <div class="rp-robot" style="--n:${n}">${cells}</div>
-    <p class="rp-msg">${escapeHtml(g.msg || "")}</p>
-    <div class="rp-chips">${chips || '<em class="muted">Sin comandos</em>'}</div>`;
-}
-
 const hslc = (h, s) => `hsl(${Math.round(h)}, ${Math.round(s)}%, 50%)`;
 const STAGE_NAMES = ["HUE", "SATURATION", "COMPLEMENTARY", "ANALOGOUS", "TRIADIC", "TETRADIC"];
 function replicaColor(g) {
@@ -432,10 +365,8 @@ function watchReplica(d) {
   const g = d.game || {};
   switch (d.screen) {
     case "screen-level1": return `<div class="rp rp-matrix">${replicaLevel1(g)}</div>`;
-    case "screen-serif": return `<div class="rp">${replicaSerif(g)}</div>`;
     case "screen-vector": return `<div class="rp">${replicaVector(g)}</div>`;
     case "screen-hanoi": return `<div class="rp">${replicaHanoi(g)}</div>`;
-    case "screen-robot": return `<div class="rp">${replicaRobot(g)}</div>`;
     case "screen-color": return `<div class="rp rp-color">${replicaColor(g)}</div>`;
     case "screen-wait": return `<div class="rp">${replicaWait(d.wait)}</div>`;
     default: {
@@ -625,10 +556,8 @@ function renderRoster(players) {
     if (ghost) tr.classList.add("ghost");
 
     const details = [];
-    if (p.level_2_completed && p.level_2_game === "serif") details.push(`${p.level_2_score || 0} pts`);
     if (p.level_2_completed && p.level_2_game === "vector") details.push(`${p.level_2_precision || 0}%`);
     if (p.level_3_completed && p.level_3_game === "hanoi") details.push(`${p.level_3_moves || 0} mov.`);
-    if (p.level_3_completed && p.level_3_game === "robot") details.push(`${p.level_3_commands || 0} cmd.`);
     if (p.level_4_completed) details.push(`🎨 ${p.level_4_rounds || 0} rondas`);
     const levelCell = (done, game) => `${done ? "✅" : "⏳"}${game ? " " + game : ""}`;
 
@@ -696,12 +625,10 @@ async function resetRoom(clearPlayers) {
         updates[`${pid}/level_1_completed`] = false;
         updates[`${pid}/level_2_completed`] = false;
         updates[`${pid}/level_2_game`] = null;
-        updates[`${pid}/level_2_score`] = 0;
         updates[`${pid}/level_2_precision`] = 0;
         updates[`${pid}/level_3_completed`] = false;
         updates[`${pid}/level_3_game`] = null;
         updates[`${pid}/level_3_moves`] = 0;
-        updates[`${pid}/level_3_commands`] = 0;
         updates[`${pid}/level_4_completed`] = false;
         updates[`${pid}/level_4_rounds`] = 0;
       });

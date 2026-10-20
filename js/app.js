@@ -13,10 +13,8 @@ import {
 import { loadSession, clearSession } from "./session.js";
 import { showScreen, toast, $ } from "./ui.js";
 import { initLevel1 } from "./levels/level1/level1.js";
-import { initSerif } from "./levels/level2/serif.js";
 import { initVector } from "./levels/level2/vector.js";
 import { initHanoi } from "./levels/level3/hanoi.js";
-import { initRobot } from "./levels/level3/robot.js";
 import { initColor } from "./levels/level4/color.js";
 import { initRain } from "./digitalrain.js";
 import { startMonitor, stopMonitor } from "./monitor.js";
@@ -30,10 +28,9 @@ const state = {
   // are restarted instead of re-initialised (re-init would double-bind events).
   level1Ctl: null,
   level1NeedsRestart: false,
-  // Level 2 / 3 mini-games, keyed by game ("serif", "vector", "hanoi", "robot").
-  // One controller per game for the whole session: a player can get a different
-  // game in the next round, and re-creating a controller would bind its events
-  // twice.
+  // Level 2 / 3 / 4 games, keyed by game ("vector", "hanoi", "color"). One
+  // controller per game for the whole session: re-creating a controller would
+  // bind its events twice.
   gameCtls: {},
   gamesToRestart: new Set(),
   gameStartedSeen: false,
@@ -274,8 +271,7 @@ function onData(data) {
     return;
   }
   if (!me.level_2_completed) {
-    if (me.level_2_game === "serif") renderSerif();
-    else renderVector();
+    renderVector();
     return;
   }
   if (!me.level_3_game) {
@@ -288,8 +284,7 @@ function onData(data) {
     return;
   }
   if (!me.level_3_completed) {
-    if (me.level_3_game === "hanoi") renderHanoi();
-    else renderRobot();
+    renderHanoi();
     return;
   }
   if (!everyoneCompleted(players, "level_3_completed", state.playerId)) {
@@ -402,12 +397,6 @@ function restartAllGames() {
   Object.keys(state.gameCtls).forEach((k) => state.gamesToRestart.add(k));
 }
 
-function renderSerif() {
-  showGame("screen-serif", "serif", () =>
-    initSerif({ onComplete: ({ score }) => ensureNextGame(2, { level_2_score: score }) })
-  );
-}
-
 function renderVector() {
   showGame("screen-vector", "vector", () =>
     initVector({ onComplete: ({ precision }) => ensureNextGame(2, { level_2_precision: precision }) })
@@ -432,23 +421,12 @@ function renderColor() {
   );
 }
 
-function renderRobot() {
-  showGame("screen-robot", "robot", () =>
-    initRobot({
-      onComplete: ({ commands }) =>
-        markLevelComplete(state.roomId, state.playerId, 3, { level_3_commands: commands }).catch(saveError)
-    })
-  );
-}
-
 // --- Live monitor --------------------------------------------------------------
 
 // Mini-game shown on each screen (keys of state.gameCtls).
 const SCREEN_GAME = {
-  "screen-serif": "serif",
   "screen-vector": "vector",
   "screen-hanoi": "hanoi",
-  "screen-robot": "robot",
   "screen-color": "color"
 };
 

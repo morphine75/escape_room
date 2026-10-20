@@ -127,9 +127,14 @@ function pickFarthestFrom(cells, from, avoid) {
   return best;
 }
 
-export function generateLevel1(size = GRID_SIZE) {
+// New level layout. With `existingWalls` the maze is kept (Level 1 maze is
+// static, decision #24) and only the hero, phone and agents are placed again.
+export function generateLevel1(size = GRID_SIZE, existingWalls = null) {
   const start = { x: 0, y: 0 };
-  const walls = makeSolvableWalls(size, [start]);
+  const walls = existingWalls
+    ? existingWalls.map((row) => row.slice())
+    : makeSolvableWalls(size, [start]);
+  walls[start.y][start.x] = false; // the hero always starts on an open cell
   const dist = bfsDistances(walls, size, start);
   const reachable = openCells(walls, size).filter((c) => dist[c.y][c.x] !== Infinity);
 

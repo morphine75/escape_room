@@ -12,8 +12,8 @@
 | Level | Name | Type |
 |-------|------|------|
 | 1 | Matrix Protocol (The Hacker Escape) | Real-time maze arcade (Pac-Man style) |
-| 2 | Typography & Vector Design (two mini-games in parallel) | Typographic agility / curve adjustment |
-| 3 | Algorithm Lab (two mini-games in parallel): Torres de Hanoi / Robot Ciego | Algorithmic thinking: stacks (LIFO) / batch programming |
+| 2 | Shape Type (everyone) | Vector design: Bézier curve adjustment |
+| 3 | Torres de Hanoi (everyone) | Algorithmic thinking: stacks (LIFO) |
 | 4 | Color (everyone plays it) | Graphic design: colour matching and colour harmonies |
 
 ---
@@ -49,9 +49,9 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
           "name": "Neo_404",
           "connected": true,
           "level_1_completed": true,
-          "level_2_game": "serif",
+          "level_2_game": "vector",
           "level_2_completed": false,
-          "level_2_score": 400,
+          "level_2_precision": 92,
           "level_3_game": "hanoi",
           "level_3_completed": true,
           "level_3_moves": 7,
@@ -82,12 +82,10 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
 | `started` | `false` while the room is in the lobby; set to `true` when the coordinator starts the round. Distinguishes the lobby from Level 1. |
 | `required_players` | Target number of players needed to start and advance. |
 | `level_1_completed` / `level_2_completed` / `level_3_completed` | Individual progress per level. |
-| `level_2_game` | Assigned mini-game: `"serif"` ("I Shot The Serif") or `"vector"` ("Shape Type"). Self-assigned by the client when it clears Level 1 (section 7.1). |
-| `level_2_score` | Score accumulated in "I Shot The Serif" (+100 per correct serif). |
+| `level_2_game` | Level 2 game, stored by the client when it clears Level 1: always `"vector"` (Shape Type) since decision #25. |
 | `level_2_precision` | Precision achieved in "Shape Type" (≥ 85% required to pass). |
-| `level_3_game` | Assigned Level 3 mini-game: `"hanoi"` (Torres de Hanoi) or `"robot"` (Robot Ciego). Self-assigned by the client when it clears Level 2 (section 7bis.1). |
+| `level_3_game` | Level 3 game, stored by the client when it clears Level 2: always `"hanoi"` since decision #25. |
 | `level_3_moves` | Moves used in Torres de Hanoi (optimum 15 with 4 disks). |
-| `level_3_commands` | Commands executed by the Robot Ciego program until it reached the goal. |
 | `level_4_completed` | Level 4 (Color) cleared: the six colour stages matched. |
 | `level_4_rounds` | Stage rounds played in Level 4 (6 = every stage matched at the first colour; each timeout adds one). |
 | `connected` | Presence flag maintained via `onDisconnect()`; `false` when the device drops offline. Armed by the client only after the live data confirms the player exists, re-armed if a network drop already set it to `false`, and cancelled when the player is removed (decision #16). |
@@ -129,25 +127,19 @@ The structure is flat and lightweight to allow low-latency real-time synchroniza
          │
          ▼ (Coordinator presses "Start round" → started = true)
 [ Screen 3: Level 1 - Matrix Protocol ] ─── (Generates a local 7×7 maze + real-time game loop)
-         │      ↺ (Caught by the Agent → new maze, retry; unlimited attempts)
-         ▼ (Player intercepts the wandering phone booth 📞 → self-assigns serif / vector)
+         │      ↺ (Caught by the Agent → back to the start, SAME maze; unlimited attempts)
+         ▼ (Player intercepts the wandering phone booth 📞)
 [ Screen 4: Level cleared / Group Wait ] ─── ("1 / 2 completaron")
          │
          ▼ (Every client sees ALL active players with level_1_completed = true → unlocks by itself)
-[ Screen 6a: Level 2 - "I Shot The Serif" ] ──────┐
-         │ (30 s timer, max 2 errors, eliminate serifs) │
-[ Screen 6b: Level 2 - "Shape Type" ] ────────────┤ (Parallel execution)
-         │ (Drag nodes to match vector curves)     │
-         ▼                                          │
-[ Screen 7: Level cleared / Group Wait ] <─────────┘
+[ Screen 6: Level 2 - "Shape Type" ] ─── (everyone; drag 2 control points to match a random curve)
+         ▼
+[ Screen 7: Level cleared / Group Wait ]
          │
-         ▼ (ALL active players have level_2_completed = true; each client already self-assigned hanoi / robot)
-[ Screen 9a: Level 3 - "Torres de Hanoi" ] ───────┐
-         │ (move 4 disks A → C, stack rules)        │
-[ Screen 9b: Level 3 - "Robot Ciego" ] ───────────┤ (Parallel execution)
-         │ (write the whole program, then run it)   │
-         ▼                                          │
-[ Screen 10: Level cleared / Group Wait ] <────────┘
+         ▼ (ALL active players have level_2_completed = true)
+[ Screen 9: Level 3 - "Torres de Hanoi" ] ─── (everyone; move 4 disks A → C, stack rules)
+         ▼
+[ Screen 10: Level cleared / Group Wait ]
          │
          ▼ (ALL active players have level_3_completed = true)
 [ Screen 11: Level 4 - "Color" ] ─── (everyone; 6 stages: HUE → SATURATION → COMPLEMENTARY
@@ -223,7 +215,7 @@ Level 1 is a **real-time arcade** in the spirit of Pac-Man (it replaced the earl
 2. **Controls (zero typing):**
    * **Movement:** arrow keys / WASD or the on-screen D-pad. It uses a persistent *desired direction* (Pac-Man style): the hacker keeps moving and turns as soon as the requested direction is open.
    * **🔫 DISPARAR** (Space / `F`) — **3 rounds** per attempt. Fires a projectile in the facing direction (right if the hacker has not moved yet). An agent hit is **frozen for 4 s**.
-   * **⚔️ BYPASS** (`B`) — **3 uses** per attempt, **1.5 s cooldown**. Rebuilds the maze walls live (keeping the hacker's and agents' cells open and the maze fully connected) and relocates the phone to a far reachable cell.
+   * **⚔️ BYPASS** (`B`) — **1 use for the whole level** (decision #24). Rebuilds the maze walls live (keeping the hacker's, the agent's and the start cells open and the maze fully connected) and relocates the phone; the new layout then stays for every later attempt.
    * **🧊 ENCRYPT** (`E`) — **1 use** per attempt. Freezes the nearest active agent (by BFS distance) for **5 s**.
    * A frozen agent is drawn in blue with a `❄` badge and cannot catch the hacker.
 
@@ -241,7 +233,7 @@ Level 1 is a **real-time arcade** in the spirit of Pac-Man (it replaced the earl
 
 4. **Win / lose:**
    * **Success:** the hacker reaches the `📞` cell → the loop stops, `onComplete()` calls `completeLevel1()` (section 7.1), which writes `level_1_completed: true` and the Level 2 game in one transaction → group-wait screen ("1 / 2 completaron"), and Level 2 starts by itself when every active player is done (immediately if the player is alone).
-   * **Caught:** an active (not frozen) agent shares the hacker's cell → the attempt counter increases and the level **restarts with a brand-new maze**, positions and power-ups. Attempts are unlimited. The restart is reported in the HUD status line ("🚨 ¡Te atraparon! Laberinto nuevo") plus a vibration.
+   * **Caught:** an active (not frozen) agent shares the hacker's cell → the attempt counter increases and the hacker, phone and agent go back to starting positions **in the same maze** (the maze is static for the whole level, decision #24); ammo and ENCRYPT are refilled, BYPASS is not. Attempts are unlimited. The restart is reported in the HUD status line ("🚨 ¡Te atraparon! Volvés al inicio") plus a vibration.
    * **Feedback = HUD status line, never toasts.** Toasts sit at the bottom of the screen, over the D-pad and action buttons, and blocked play. Every Level 1 message (capture, BYPASS / ENCRYPT results, "Sin municiones", "BYPASS enfriando…", no uses left, win) is written to `#l1-status` via `setStatus(msg, kind, ms)`: `kind` colours it (warning = amber, error = red, success = green) and after ~1.8 s it reverts to the default hint "Llegá al 📞 y esquivá al 🕵🏻".
 
 5. **Procedural generation:**
@@ -281,7 +273,9 @@ function generateLevel1(size = GRID_SIZE) {
   return { size, walls, hero: start, phone, agents };
 }
 
-// BYPASS reuses makeSolvableWalls, keeping the hero's and agents' cells open.
+// The maze is generated once per level; later attempts call
+// generateLevel1(size, currentWalls) to keep it. BYPASS (1 use) reuses
+// makeSolvableWalls, keeping the hero's, agent's and start cells open.
 const regenerateWalls = (size, keepOpen) => makeSolvableWalls(size, keepOpen);
 ```
 
@@ -323,10 +317,10 @@ onValue(ref(db, `rooms/${roomId}`), (snapshot) => {
   if (!me.level_1_completed) return renderLevel1(data);
   if (!me.level_2_game) { completeLevel1(roomId, playerId); return renderWait(data, 1); } // e.g. refresh
   if (!everyoneCompleted(data.players, "level_1_completed", playerId)) return renderWait(data, 1);
-  if (!me.level_2_completed) return me.level_2_game === "serif" ? renderSerif() : renderVector();
+  if (!me.level_2_completed) return renderVector();
   if (!me.level_3_game) { completeLevel2(roomId, playerId); return renderWait(data, 2); } // e.g. refresh
   if (!everyoneCompleted(data.players, "level_2_completed", playerId)) return renderWait(data, 2);
-  if (!me.level_3_completed) return me.level_3_game === "hanoi" ? renderHanoi() : renderRobot();
+  if (!me.level_3_completed) return renderHanoi();
   if (!everyoneCompleted(data.players, "level_3_completed", playerId)) return renderWait(data, 3);
   if (!me.level_4_completed) return renderColor();
   if (!everyoneCompleted(data.players, "level_4_completed", playerId)) return renderWait(data, 4);
@@ -344,97 +338,32 @@ await completeLevel1(roomId, playerId);
 
 // Level 2: mark it, store the score / precision and self-assign the Level 3
 // game, all in one transaction (section 7bis.1).
-await completeLevel2(roomId, playerId, { level_2_score: score }); // or level_2_precision
+await completeLevel2(roomId, playerId, { level_2_precision: precision });
 
 // Level 3: mark it and store the result.
 update(ref(db, `rooms/${roomId}/players/${playerId}`), {
   level_3_completed: true,
-  level_3_moves: moves,            // or level_3_commands
+  level_3_moves: moves,
   last_changed: serverTimestamp()
 });
 ```
 
 ---
 
-## 🔠 7. LEVEL 2: Typography & Vector Design
+## 🔠 7. LEVEL 2: Shape Type (Vector Design)
 
-### 7.1. Game Distribution & Assignment Logic
+### 7.1. Game Assignment
 
-**Distribution algorithm (client-side, decision #12):**
-- When a player clears Level 1, their client runs a `runTransaction()` over `rooms/{roomId}/players` (`completeLevel1()` in `js/room.js`).
-- Inside the transaction it counts how many **other** players already have `serif` and `vector`, and assigns itself the game with fewer players (**a tie is broken at random**), together with `level_1_completed: true`. The same helper (`completeAndAssign()` in `js/room.js`) assigns the Level 3 game when Level 2 is cleared.
-- The transaction makes concurrent completions safe: if two players finish at the same time, one of them is retried with fresh data, so the split stays balanced.
-- An already assigned game is never changed (a retry after a refresh keeps it).
-- **Example:** 10 players → 5 serif, 5 vector. 11 players → 6 / 5 (which game gets the extra player is random), whatever order they finish in.
+Every player plays **Shape Type** (decision #25: the former second game, "I Shot The Serif", was removed). When a player clears Level 1, `completeLevel1()` (`js/room.js`) runs one `runTransaction()` that sets `level_1_completed: true` and stores `level_2_game: "vector"`. The helper (`completeAndAssign()`) still picks the least-used option of a list (ties at random), so a level could get two parallel games again by adding one to `NEXT_GAMES`.
 
 ---
 
-### 7.2. Game A: "I Shot The Serif" (Typographic Agility)
+### 7.2. "Shape Type" (Vector Curve Adjustment)
 
 #### 7.2.1. Objective
-Eliminate all letters displayed with **serifs** before the 30-second timer expires.
-
-#### 7.2.2. Mobile Layout (Portrait)
-
-```text
-+------------------------------------+
-| ⏱️ 22s   |  ❌ 1/2  |  🎯 400       |
-+------------------------------------+
-|                                    |
-|     [ T ] (Serif)    [ A ] (Sans)  |
-|         (Tap)            (Tap)     |
-|                                    |
-|     [ R ] (Sans)     [ G ] (Serif) |
-|         (Tap)            (Tap)     |
-|                                    |
-|     [ M ] (Serif)    [ E ] (Sans)  |
-|         (Tap)            (Tap)     |
-|                                    |
-+------------------------------------+
-|     Tap ONLY the typefaces         |
-|         WITH SERIFS!               |
-+------------------------------------+
-```
-
-#### 7.2.3. Game Mechanics
-
-**Display grid:** 3×3 or 4×4 grid of random letters ($A$–$Z$).
-
-**Font families:**
-- **Serif fonts** (must tap): Times New Roman, Garamond, Georgia, Courier New.
-- **Sans-serif fonts** (must avoid): Helvetica, Arial, Inter, Verdana, Open Sans.
-- Every letter's `font-family` ends with the generic family (`serif` / `sans-serif`): a device that lacks the chosen font (Android has no Helvetica, Verdana or Segoe UI) still shows the right *kind* of letter instead of the browser default, which is often a serif.
-
-**Player interaction:**
-1. The grid shows letters in random serif / sans-serif fonts.
-2. The player taps only letters with **serifs**.
-3. Tapping a serif letter:
-   - The letter explodes / disappears.
-   - +100 points.
-   - Short haptic vibration.
-4. Tapping a sans-serif letter (mistake):
-   - Visual error warning: "❌ Error: That's Sans Serif!" and the error counter in the header goes up (`❌ 1/2`).
-   - **Only 2 errors are allowed per round** (`MAX_ERRORS = 2`): the 2nd error **restarts the round** with a new grid, a full timer, and score / errors back to zero.
-5. **Success condition:** All serif letters eliminated, or the timer reaches zero.
-   - If all serifs are eliminated: `level_2_completed: true` and the score is saved in `level_2_score`.
-   - The player moves to the group-wait screen; the group-victory screen appears when every active player is done.
-
-> **Resolved:** if the timer hits zero without completion, the game **automatically restarts with a new grid**. No penalty is applied and the player is never blocked, so the rest of the group is not held up.
-
-#### 7.2.4. Timing & Scoring
-- **Timer:** 30 seconds.
-- **Points:** +100 per correctly identified serif letter.
-- **Errors:** max 2 per round; the 2nd error restarts the round.
-- **Pass condition:** Eliminate all serif fonts before time expires and before the 2nd error.
-
----
-
-### 7.3. Game B: "Shape Type" (Vector Curve Adjustment)
-
-#### 7.3.1. Objective
 Reconstruct a **random vector curve** by dragging its **two control points** ("puntos de fuga" / Bézier handles) until the curve matches the dotted target silhouette. A **precision of ≥ 85% on every control point** is required to pass.
 
-#### 7.3.2. Mobile Layout (Portrait)
+#### 7.2.2. Mobile Layout (Portrait)
 
 ```text
 +------------------------------------+
@@ -452,7 +381,7 @@ Reconstruct a **random vector curve** by dragging its **two control points** ("p
 +------------------------------------+
 ```
 
-#### 7.3.3. Game Mechanics
+#### 7.2.3. Game Mechanics
 
 **Setup (random every round):**
 - The target is a **cubic Bézier** from a fixed start anchor (■, left side) to an end anchor (■, right side) with **two control points**. Anchors and control points are generated at random each round (`generateShape()` in `js/levels/level2/vector.js`), giving **S-shaped** curves (control points on opposite sides of the anchor line) or **C-shaped** ones (same side) — roughly half and half. Shapes are retried until the curve is clearly bent and the two control points are well apart, so it never degenerates into a straight line.
@@ -467,7 +396,7 @@ Reconstruct a **random vector curve** by dragging its **two control points** ("p
    - **Not yet:** the points **stay where they are** (no reset), so the player keeps adjusting the other point.
 4. A coordinator reset or a new round generates a **new random curve**.
 
-#### 7.3.4. Precision Calculation Algorithm
+#### 7.2.4. Precision Calculation Algorithm
 
 ```javascript
 // Pseudocode for precision calculation
@@ -488,15 +417,15 @@ With two control points, the round's precision is the **minimum** over the point
 
 ---
 
-## 🧠 7bis. LEVEL 3: Algorithm Lab ("Laboratorio de Algoritmos")
+## 🧠 7bis. LEVEL 3: Torres de Hanoi
 
-Two mini-games that train how a systems analyst thinks. Like Level 2, the group is **split in two**: each player gets one game. Files: `js/levels/level3/hanoi.js`, `js/levels/level3/robot.js`, `css/level3.css`.
+Every player plays **Torres de Hanoi** (decision #25: the former second game, "Robot Ciego", was removed). Files: `js/levels/level3/hanoi.js`, `css/level3.css`.
 
-### 7bis.1. Game Distribution
+### 7bis.1. Assignment
 
-When a player clears Level 2, the same transaction that stores `level_2_completed` and the score / precision also assigns `level_3_game` (`completeLevel2()` → `completeAndAssign()` in `js/room.js`): the game with fewer players so far, a tie broken at random. Level 3 unlocks for everyone when every active player has cleared Level 2 (decision #12), and the group-victory screen appears when every active player has cleared Level 3.
+When a player clears Level 2, the same transaction that stores `level_2_completed` and the precision also stores `level_3_game: "hanoi"` (`completeLevel2()` in `js/room.js`). Level 3 unlocks for everyone when every active player has cleared Level 2 (decision #12), and Level 4 when every active player has cleared Level 3.
 
-### 7bis.2. Game A: "Torres de Hanoi" (server migration)
+### 7bis.2. "Torres de Hanoi" (server migration)
 
 ```text
 +------------------------------------+
@@ -521,35 +450,9 @@ When a player clears Level 2, the same transaction that stores `level_2_complete
 * **Pass:** all disks on Servidor C, in any number of moves. The result shows whether it was optimal; `level_3_completed: true` and `level_3_moves` are stored.
 * **🔄 Reiniciar** resets the towers (only before finishing).
 
-### 7bis.3. Game B: "Robot Ciego" (batch programming)
+### 7bis.3. Layout rules
 
-```text
-+------------------------------------+
-| 🤖 Robot Ciego        Comandos: 5  |
-| El robot no ve: armá todo el       |
-| programa y después ejecutalo.      |
-+------------------------------------+
-|  [➡️][  ][  ][▓▓][  ][  ]          |
-|  [  ][▓▓][  ][  ][  ][▓▓]          | <-- 6×6 grid, 7 obstacles,
-|  ...                    [🏁]       |     start (0,0) facing right
-+------------------------------------+
-|  Status line                       |
-|  1.⬆️ 2.⬆️ 3.↪️ 4.⬆️ 5.⬆️          | <-- program (numbered chips)
-|  [↩️ Girar izq][⬆️ Avanzar][↪️ Girar der] |
-|  [⌫][🗑️][🔀][   ▶️ Ejecutar   ]  |
-+------------------------------------+
-```
-
-* **Goal:** program the robot to reach 🏁 at the opposite corner.
-* **Commands:** ⬆️ Avanzar, ↩️ Girar izquierda, ↪️ Girar derecha (max 40). ⌫ removes the last command, 🗑️ clears the program, 🔀 generates a new grid.
-* **Batch execution:** the player writes the **whole program first** and then presses **▶️ Ejecutar**; the robot runs it step by step (~380 ms per command) from the start, with the current command highlighted.
-* **Failure:** hitting an obstacle or leaving the grid → the failing command is highlighted in red, the status line explains it, and the robot returns to the start **keeping the program** so the player can debug it. A program that ends without reaching 🏁 is reported too.
-* **Pass:** the robot reaches 🏁 at any point of the program → `level_3_completed: true` and `level_3_commands` (commands executed) are stored.
-* **Generation:** each client generates its own grid; obstacles are retried until a path from the start to 🏁 exists (BFS), and the first cell in front of the robot is always free.
-
-### 7bis.4. Layout rules
-
-Same navy theme as Level 2; all feedback goes to a status line (no toasts over the controls); every control ≥ 44 px; both screens fit the phone without scrolling (verified at 360×640, 360×740 and 390×844 — the robot grid shrinks with the viewport height).
+Same navy theme as Level 2; all feedback goes to a status line (no toasts over the controls); every control ≥ 44 px; the screen fits the phone without scrolling (verified at 360×640, 360×740 and 390×844).
 
 ---
 
@@ -626,7 +529,7 @@ Light, neutral theme (like a design tool) so colours are judged on grey; fits a 
 * **Touch targets:** Minimum $44 \times 44\text{px}$.
 * **No zoom on the player app (`index.html`):** zooming breaks the game layout and iPhone Safari does not always zoom back out. Layers, because each browser honours a different one: viewport meta `maximum-scale=1, user-scalable=no` (Android / Chrome, and blocks iOS zoom on input focus); inputs at ≥ 16 px (iOS auto-zooms smaller inputs); `touch-action: manipulation` on `html` (double-tap zoom); `js/nozoom.js` cancels iOS `gesture*` events and multi-finger `touchmove` (pinch — iOS ignores `user-scalable=no`), a double-tap guard for older iOS that skips buttons/inputs, and Ctrl/Cmd + wheel / `+` `-` `0` on desktop. The dashboard keeps normal zoom.
 * **Components:** Responsive cards, touchable directional controls, dynamic progress bars, draggable vector nodes.
-* **Haptic feedback:** Short vibration on serif elimination (Game A); gentle pulse on node drag (Game B); short vibrations on firing, hitting an agent, BYPASS, ENCRYPT, being caught and reaching the phone (Level 1).
+* **Haptic feedback:** Gentle pulse on node drag (Shape Type); short vibrations on firing, hitting an agent, BYPASS, ENCRYPT, being caught and reaching the phone (Level 1).
 * **Animations:**
   * Smooth cell-to-cell movement of every token and a frozen (`❄`) effect when an Agent is neutralized (Level 1).
   * Letter explosion on correct taps (Game A).
@@ -637,13 +540,13 @@ Light, neutral theme (like a design tool) so colours are judged on grey; fits a 
 
 Big-screen panel used by the facilitator and the only place with room-level controls. Level unlocks happen on the clients (decision #12), so the dashboard does not drive phase transitions and does not need to stay open.
 
-* **Live view:** room code, status (Lobby / Nivel 1 / Nivel 2 / Nivel 3 / Nivel 4 / Finalizado, using the same `everyoneCompleted()` rule as the clients), joined / required players, a per-player roster (connection, L1 ✅/⏳, L2 ✅/⏳ + game, L3 ✅/⏳ + game, L4 ✅/⏳, results: score / precision / moves / commands / Level 4 rounds), a `Nivel 1 … · Nivel 4: X / N` summary and an overall progress bar.
+* **Live view:** room code, status (Lobby / Nivel 1 / Nivel 2 / Nivel 3 / Nivel 4 / Finalizado, using the same `everyoneCompleted()` rule as the clients), joined / required players, a per-player roster (connection, L1 ✅/⏳, L2 ✅/⏳ + game, L3 ✅/⏳ + game, L4 ✅/⏳, results: precision / moves / Level 4 rounds), a `Nivel 1 … · Nivel 4: X / N` summary and an overall progress bar.
 * **Start round:** writes `started: true`, unlocking Level 1.
-* **Restart round:** clears every player's progress (`level_*_completed`, assigned mini-games, score / precision / moves / commands) and returns the room to the lobby (`current_phase: 1`, `started: false`), **keeping the registered players** so the same group can replay.
+* **Restart round:** clears every player's progress (`level_*_completed`, assigned mini-games, precision / moves / rounds) and returns the room to the lobby (`current_phase: 1`, `started: false`), **keeping the registered players** so the same group can replay.
 * **Wipe room:** deletes all players and returns to the lobby, ready for a brand-new group.
 * **Player management:** the roster shows each player's connection (🟢 / ⚫) and a **🗑️** button to remove that player (with confirmation); their device returns to the registration screen. Records without a `name` are flagged **⚠️ sin nombre** so stray entries can be removed.
-* **Live monitor ("👁️ Ver pantalla"):** each roster row has a 👁️ button that opens a modal with what that player's phone is showing **right now**: the current screen (Lobby, Nivel 1, Espera grupal, Serif, Shape Type, Hanoi, Robot, Victoria) and its key live data — Level 1: attempt, ammo / BYPASS / ENCRYPT left, status line, positions of the hero, phone and agent (❄ when frozen); Serif: time, score, errors, serifs left; Shape Type: precision of each control point; Hanoi: moves vs optimum and the disks on each tower (✋ lifted); Robot: the program, whether it is running, robot position and message; wait screen: group progress. It also warns when the game is in the background or no data arrived for 10 s, and shows "Actualizado hace X s". The modal closes by itself if the player is removed.
-  * **Visual replica (stage 2):** above the data (now a collapsible "Datos" table) the modal redraws what the phone shows, with the same look: Level 1 — the 7×7 maze with walls, hero, phone, agent (❄ glow when frozen) and projectiles, plus the HUD and the three power-up counters; Serif — the 3×3 letters in their real fonts, hit letters faded, and a green dot on the serif letters (coordinator-only hint); Shape Type — an SVG of the target curve (dotted, with handles) and the player's curve with control points 1 and 2 (red / green); Hanoi — the three towers with coloured disks and the lifted one; Robot — the 6×6 grid (walls, 🏁, robot arrow, crash cell in red) and the program chips with the running / failing command highlighted; Color — the stage and timer, three swatches (given colour, the player's pick and the correct answer, the latter coordinator-only) and the six stage chips; group wait — title, count and progress bar; lobby / registration / victory — a simple card. Snapshots carry the extra data for this (maze / grid as compact "0/1" strings, letters + fonts, normalised curve geometry and canvas aspect), still well under 1 KB.
+* **Live monitor ("👁️ Ver pantalla"):** each roster row has a 👁️ button that opens a modal with what that player's phone is showing **right now**: the current screen (Lobby, Nivel 1, Espera grupal, Shape Type, Hanoi, Color, Victoria) and its key live data — Level 1: attempt, ammo / BYPASS / ENCRYPT left, status line, positions of the hero, phone and agent (❄ when frozen); Shape Type: precision of each control point; Hanoi: moves vs optimum and the disks on each tower (✋ lifted); wait screen: group progress. It also warns when the game is in the background or no data arrived for 10 s, and shows "Actualizado hace X s". The modal closes by itself if the player is removed.
+  * **Visual replica (stage 2):** above the data (now a collapsible "Datos" table) the modal redraws what the phone shows, with the same look: Level 1 — the 7×7 maze with walls, hero, phone, agent (❄ glow when frozen) and projectiles, plus the HUD and the three power-up counters; Shape Type — an SVG of the target curve (dotted, with handles) and the player's curve with control points 1 and 2 (red / green); Hanoi — the three towers with coloured disks and the lifted one; Color — the stage and timer, three swatches (given colour, the player's pick and the correct answer, the latter coordinator-only) and the six stage chips; group wait — title, count and progress bar; lobby / registration / victory — a simple card. Snapshots carry the extra data for this (maze as a compact "0/1" string, normalised curve geometry and canvas aspect, colours), still well under 1 KB.
   * How it works (`js/monitor.js` + `dashboard.js`): the dashboard registers as a watcher under `live/{room}/{player}/watchers`; only then does that phone publish its snapshot every 0.5 s (if it changed, plus a 4 s heartbeat). Phones nobody watches send nothing. The data is stored outside `rooms/` so it is not broadcast to every player. Removing a player, wiping or deleting the room also clears its `live` data.
 * **Room management:** the setup screen lists every room (code, player count, status) with **Open** and **🗑️ Delete** actions, and the room view has **← Salas** (back to the list) and **🗑️ Eliminar sala**. A room can be deleted **only when it has no players** (wipe it first); the button is disabled otherwise, and the delete runs as a `transaction()` (`deleteRoomIfEmpty()` in `js/room.js`) that aborts if someone joined in the meantime. After deleting, the code stays in the input so the room can be **re-created** with the same code via **Crear sala**.
 
@@ -658,7 +561,7 @@ Consolidated record of the design points that were previously left open, togethe
 | # | Topic | Situation | Resolution |
 |---|-------|-----------|------------|
 | 1 | **Grid size** | `REQUIREMENTS.md` says 4×4 (FR-2.1); the design originally said 5×5 / 6×6 | Use **7×7** (enlarged from 5×5 with the real-time rework, #11), exposed as the `GRID_SIZE` constant. The discrepancy with FR-2.1 is documented here; the design prevails. |
-| 2 | **"I Shot The Serif" timeout** | Not specified | On timeout, **automatically retry with a new grid**. No penalty; the player never blocks the group. |
+| 2 | **"I Shot The Serif" timeout** | Not specified | ~~On timeout, **automatically retry with a new grid**. No penalty; the player never blocks the group.~~ **Obsolete: the game was removed (#25).** |
 | 3 | **"Shape Type" tolerance** | `tolerance = 20 px` → 85% ≈ 3 px (unplayable on touch) | Scale the tolerance to the canvas: success radius ≈ **8% of the shorter side** (≈ 40–60 px on mobile). |
 | 4 | **Who writes `current_phase`** | Only "recommended" a single writer | ~~The coordinator dashboard is the sole authority and writes it inside a `transaction()`.~~ **Superseded by #12:** phases are no longer advanced; the dashboard only resets `current_phase` to `1` on a room reset. |
 | 5 | **Level 2 assignment** | "The coordinator defines N on unlock" | ~~The coordinator assigns `serif` / `vector` over a sorted `playerId` list.~~ **Superseded by #12:** each client self-assigns the less-used game inside a `transaction()` when it clears Level 1 (ties → `serif`). |
@@ -669,14 +572,16 @@ Consolidated record of the design points that were previously left open, togethe
 | 10 | **Level 1 ambience** | A Matrix-styled background was wanted, but a static page feels flat | An animated **"digital rain"** canvas (`js/digitalrain.js`) renders falling katakana / Latin / binary glyphs with a shining head glyph and fading trail behind the Level 1 screen. It runs only while the screen is visible and the tab is foregrounded, sits at ~50 % opacity for readability, and shows a single static frame under `prefers-reduced-motion`. |
 | 11 | **Level 1 gameplay** | The original "build a command list, then run the exploit" mode (5×5, agent HP, `decryptGate` puzzle) was replaced by a real-time mode; FR-2.2 asks for basic algorithmic logic | Rebuilt as a **real-time maze arcade** (Pac-Man style) on a 7×7 maze: agents chase via BFS (reduced to 1, see #13), the phone wanders, **DISPARAR** (3 rounds, 4 s freeze), **BYPASS** (3 uses, 1.5 s cooldown, live maze rebuild) and **ENCRYPT** (1 use, 5 s freeze of the nearest agent). Being caught restarts with a new maze, unlimited attempts. The agent moves at half the hacker's speed (`AGENT_MS = 300`). Logic is exercised through route planning and resource management instead of command sequencing; the design prevails over FR-2.2. |
 | 12 | **Phase progression** | Levels unlocked only when the coordinator's dashboard (which had to be open) advanced `current_phase`; with the dashboard closed, players stayed on the wait screen | **Automatic, client-side group progression:** a level unlocks when **every active player** (connected, plus the player itself) has cleared the previous one. Each client evaluates this itself (`everyoneCompleted()` in `js/sync.js`), so no coordinator action is needed and a player alone in the room advances immediately. On clearing Level 1 the client self-assigns its Level 2 game (transaction, balanced split). The coordinator only starts and resets the round. A disconnected player does not block the rest; they continue on their own when they reconnect. |
-| 13 | **Level 1 tuning** | With 2 agents and a toast on every capture, the restart toast covered the controls and the game could not be played | **1 agent** (`AGENT_COUNT = 1`) and **no toasts at all in Level 1**: every message (capture, power-up results and warnings, win) goes to the HUD status line, colour-coded, reverting to the default hint after ~1.8 s. |
-| 14 | **"I Shot The Serif" errors** | Wrong taps had no consequence beyond lost time | **Max 2 errors per round** (`MAX_ERRORS = 2`): the 2nd wrong tap restarts the round with a new grid (score, errors and timer reset). An `❌ n/2` counter is shown in the header. |
+| 13 | **Level 1 tuning** | With 2 agents and a toast on every capture, the restart toast covered the controls and the game could not be played | **1 agent** (`AGENT_COUNT = 1`) and **no toasts at all in Level 1**: every message (capture, power-up results and warnings, win) goes to the HUD status line, colour-coded, reverting to the default hint after ~1.8 s. BYPASS: 1 use per level since #24. |
+| 14 | **"I Shot The Serif" errors** | Wrong taps had no consequence beyond lost time | ~~**Max 2 errors per round** (`MAX_ERRORS = 2`): the 2nd wrong tap restarts the round with a new grid (score, errors and timer reset). An `❌ n/2` counter is shown in the header.~~ **Obsolete: the game was removed (#25).** |
 | 15 | **Room management** | Rooms could only be created or opened by code; there was no way to see or remove them | The dashboard lists all rooms and can **delete empty rooms only** (transactional check, so a room never disappears with players inside). A deleted room can be re-created with the same code. |
 | 16 | **Ghost players** | A nameless player appeared in a room without anyone registering. Cause: the `onDisconnect → connected=false` write stayed armed after the player was removed (e.g. *Vaciar sala*), so closing that tab later re-created `players/{id}` as `{connected: false}`; a refresh with a stale session could do the same with `connected: true` | (1) Presence is armed (`trackPresence`) only once the live data shows the player exists, and cancelled (`stopPresence`) when the player or room disappears. (2) `database.rules.json` rejects player records without a non-empty `name`. (3) The dashboard roster flags nameless records and lets the coordinator **remove any player**. |
 | 17 | **Zoom on iPhone** | Players could pinch / double-tap zoom the game and Safari did not reliably zoom back, breaking the layout | The player app blocks zoom in every browser (viewport meta, ≥ 16 px inputs, `touch-action: manipulation`, `js/nozoom.js` for iOS pinch and desktop Ctrl zoom). Game buttons still accept rapid taps. The coordinator dashboard is unaffected. |
-| 18 | **Level 3** | Phase 3 was not implemented (#6); an algorithm-themed third level was requested | **Algorithm Lab:** the group is split in two like Level 2 — **Torres de Hanoi** (4 disks, stack rules, any number of moves passes, optimum 15 shown) and **Robot Ciego** (6×6 grid, write the whole program then run it; a collision highlights the failing command and lets the player fix it). The Level 3 game is self-assigned in the same transaction that completes Level 2 (balanced, ties at random). Level 3 unlocks when every active player cleared Level 2; victory when every active player cleared Level 3. |
+| 18 | **Level 3** | Phase 3 was not implemented (#6); an algorithm-themed third level was requested | **Algorithm Lab:** the group is split in two like Level 2 — **Torres de Hanoi** (4 disks, stack rules, any number of moves passes, optimum 15 shown) and **Robot Ciego** (6×6 grid, write the whole program then run it; a collision highlights the failing command and lets the player fix it). The Level 3 game is self-assigned in the same transaction that completes Level 2 (balanced, ties at random). Level 3 unlocks when every active player cleared Level 2; victory when every active player cleared Level 3. **Changed by #25:** only Torres de Hanoi remains. |
 | 19 | **Shape Type variety** | The curve was always the same quadratic with a single draggable node | **Random cubic Bézier every round** (S or C shaped) with **two control points** to place; precision is the worst point's, each point turns green when placed, and points are no longer reset after a release that is not yet precise enough. |
 | 20 | **Watching a player's screen** | The coordinator wanted to see what a student is doing, but phones cannot share their screen from a web page (no `getDisplayMedia` on iOS / Android) and screenshots are heavy | **State mirroring:** the phone publishes a small snapshot of its screen to `live/{room}/{player}/state` only while a dashboard watches it, and the dashboard shows it in a modal (stage 1: key data; stage 2: visual replica). ≈1 KB/s for one watched player. Requires the `live` rule in `database.rules.json`. |
-| 21 | **Live monitor, stage 2 + Serif font fallback** | Stage 1 showed the watched player's data as a table; while checking the Serif replica, "sans-serif" letters were found rendering with serifs on devices missing the font | The monitor modal now draws a **visual replica** of every screen (maze, letters, curve, towers, robot grid, wait / lobby / victory cards) with the data table collapsible below. Serif letters now always declare a generic fallback family (`…, serif` / `…, sans-serif`), so a missing font can no longer turn a correct tap into an error. |
+| 21 | **Live monitor, stage 2 + Serif font fallback** | Stage 1 showed the watched player's data as a table; while checking the Serif replica, "sans-serif" letters were found rendering with serifs on devices missing the font | The monitor modal now draws a **visual replica** of every screen (maze, letters, curve, towers, robot grid, wait / lobby / victory cards) with the data table collapsible below. Serif letters now always declare a generic fallback family (`…, serif` / `…, sans-serif`), so a missing font can no longer turn a correct tap into an error. (The Serif game was later removed, #25.) |
 | 22 | **Level 4** | A last, graphic-design level was requested, modelled on *color.method.ac* | **"Color"**, played by everyone: six stages (HUE, SATURATION, COMPLEMENTARY, ANALOGOUS, TRIADIC, TETRADIC) on a colour wheel, graded like the original (pass = "Bien" or better), 20 s per colour and a new colour when time runs out, until all six are matched. Unlocks when every active player cleared Level 3; victory after Level 4. Shown in the live monitor with the given / picked / correct colours. |
 | 23 | **Choosing the room** | Players had to type the room code (`SALA-101`), error-prone on a phone | The registration screen shows a **dropdown of rooms**, updated live: rooms in the lobby with their player count (the only open one is preselected, as is the room last used on that device), rooms already playing listed as disabled "en curso", and a clear message when no room is open. The list is only listened to while the registration screen is shown. It needs read access to the whole `rooms` node (`database.rules.json`: `"rooms": { ".read": true }`); if that read is denied or the list does not arrive within 6 s, a text field to type the room code appears as a fallback. |
+| 24 | **Static Level 1 maze** | Every capture generated a brand-new maze and BYPASS (3 uses, refilled each attempt) rebuilt it at will | The maze is generated **once per level** and stays the same after every capture (only the hacker, phone and agent go back to their starting positions; ammo and ENCRYPT refill). **BYPASS can reconfigure it only once per level**; the reconfigured maze then stays. A new round (coordinator reset) generates a new maze and restores BYPASS. |
+| 25 | **One game per level** | Levels 2 and 3 split the group into two games | **"I Shot The Serif" and "Robot Ciego" were removed**: everyone plays Shape Type in Level 2 and Torres de Hanoi in Level 3. The assignment transaction now stores `vector` / `hanoi`; `level_2_score` and `level_3_commands` are no longer used. |

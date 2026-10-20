@@ -13,22 +13,20 @@ flowchart LR
     UC3(["Reanudar sesión tras recargar"])
     UC4(["Jugar Nivel 1<br/>Matrix Protocol"])
     UC4a(["Disparar 🔫"])
-    UC4b(["BYPASS ⚔️"])
+    UC4b(["BYPASS ⚔️<br/>(1 vez por nivel)"])
     UC4c(["ENCRYPT 🧊"])
-    UC5(["Jugar Nivel 2<br/>I Shot The Serif"])
     UC6(["Jugar Nivel 2<br/>Shape Type"])
     UC12(["Jugar Nivel 3<br/>Torres de Hanoi"])
-    UC13(["Jugar Nivel 3<br/>Robot Ciego"])
     UC14(["Jugar Nivel 4<br/>Color (6 armonías)"])
     UC7(["Ver progreso del equipo<br/>(pantalla de espera)"])
     UC8(["Ver victoria grupal"])
-    UC9(["Asignar juego del<br/>Nivel 2 / Nivel 3"])
+    UC9(["Guardar el juego del<br/>siguiente nivel"])
     UC10(["Desbloquear siguiente nivel<br/>cuando todos completan"])
     UC11(["Marcar desconexión"])
   end
 
-  J --- UC1 & UC2 & UC3 & UC4 & UC5 & UC6 & UC12 & UC13 & UC14 & UC7 & UC8
-  UC5 & UC6 -. "«include»" .-> UC9
+  J --- UC1 & UC2 & UC3 & UC4 & UC6 & UC12 & UC14 & UC7 & UC8
+  UC6 -. "«include»" .-> UC9
   UC1 -. "«include»" .-> UC1a
   UC4a & UC4b & UC4c -. "«extend»" .-> UC4
   UC4 -. "«include»" .-> UC9
@@ -40,7 +38,7 @@ flowchart LR
   classDef actor fill:#1d4ed8,stroke:#93c5fd,color:#fff
   classDef uc fill:#1e293b,stroke:#94a3b8,color:#f8fafc
   classDef sys fill:#422006,stroke:#f59e0b,color:#fff
-  class UC12,UC13,UC14 uc
+  class UC12,UC14 uc
   class J actor
   class SYS sys
-  class UC1,UC1a,UC2,UC3,UC4,UC4a,UC4b,UC4c,UC5,UC6,UC7,UC8,UC9,UC10,UC11 uc
+  class UC1,UC1a,UC2,UC3,UC4,UC4a,UC4b,UC4c,UC6,UC7,UC8,UC9,UC10,UC11 uc

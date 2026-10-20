@@ -84,12 +84,10 @@ export async function joinRoom(roomId, rawName) {
     level_1_completed: false,
     level_2_completed: false,
     level_2_game: null,
-    level_2_score: 0,
     level_2_precision: 0,
     level_3_completed: false,
     level_3_game: null,
     level_3_moves: 0,
-    level_3_commands: 0,
     level_4_completed: false,
     level_4_rounds: 0,
     joined_at: serverTimestamp(),
@@ -142,10 +140,13 @@ export async function markLevelComplete(roomId, playerId, level, extra = {}) {
   await update(ref(db, `rooms/${roomId}/players/${playerId}`), payload);
 }
 
-// Mini-games of the levels that split the group in two (decisions #12 / #18).
+// Game of the next level, stored when a level is cleared. Every player now
+// plays the same one (decision #25: "I Shot The Serif" and "Robot Ciego" were
+// removed); the list form keeps the balanced split available if a level ever
+// gets two games again.
 const NEXT_GAMES = {
-  1: { field: "level_2_game", games: ["serif", "vector"] }, // assigned when Level 1 is cleared
-  2: { field: "level_3_game", games: ["hanoi", "robot"] }   // assigned when Level 2 is cleared
+  1: { field: "level_2_game", games: ["vector"] }, // assigned when Level 1 is cleared
+  2: { field: "level_3_game", games: ["hanoi"] }   // assigned when Level 2 is cleared
 };
 
 // Marks `level` as completed and, in the same transaction, self-assigns the
@@ -178,13 +179,12 @@ async function completeAndAssign(roomId, playerId, level, extra = {}) {
   });
 }
 
-// Level 1 cleared -> assigns the Level 2 game (serif / vector).
+// Level 1 cleared -> assigns the Level 2 game (vector).
 export function completeLevel1(roomId, playerId) {
   return completeAndAssign(roomId, playerId, 1);
 }
 
-// Level 2 cleared (with its score / precision) -> assigns the Level 3 game
-// (hanoi / robot).
+// Level 2 cleared (with its precision) -> assigns the Level 3 game (hanoi).
 export function completeLevel2(roomId, playerId, extra) {
   return completeAndAssign(roomId, playerId, 2, extra);
 }

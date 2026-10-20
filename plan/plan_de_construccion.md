@@ -34,7 +34,7 @@ escape_room/
 │   ├── base.css          # reset, variables CSS, tipografía, toasts, lobby
 │   ├── level1.css        # tema Matrix (negro + verde neón), tablero y controles
 │   ├── level2.css        # tema navy/electric blue
-│   ├── level3.css        # Laboratorio de Algoritmos (Hanoi / Robot)
+│   ├── level3.css        # Torres de Hanoi
 │   ├── level4.css        # Color (tema claro)
 │   └── dashboard.css
 ├── js/
@@ -52,11 +52,9 @@ escape_room/
 │       │   ├── generator.js  # laberinto 7×7 aleatorio con conectividad total (BFS)
 │       │   └── level1.js     # motor en tiempo real: movimiento, agentes, 📞, DISPARAR/BYPASS/ENCRYPT
 │       ├── level2/
-│       │   ├── serif.js      # "I Shot The Serif"
 │       │   └── vector.js     # "Shape Type" (canvas + Bézier)
 │       ├── level3/
-│       │   ├── hanoi.js      # Torres de Hanoi
-│       │   └── robot.js      # Robot Ciego
+│       │   └── hanoi.js      # Torres de Hanoi
 │       └── level4/
 │           └── color.js      # Color (armonías de color)
 └── plan/
@@ -113,7 +111,7 @@ Firebase se importa por ESM desde el CDN de gstatic (v10.7.1), como en el diseñ
 - Cada cliente desbloquea el siguiente nivel apenas `everyoneCompleted()` es verdadero; tras el Nivel 4, victoria grupal.
 - **Entregable:** al completar todos, todas las pantallas pasan de nivel solas, sin recargar ni depender del dashboard.
 
-### Fase 4 — Nivel 2A: "I Shot The Serif" (M)
+### Fase 4 — Nivel 2A: "I Shot The Serif" (M) — ELIMINADO (decisión #25)
 - Reparto: autoasignación balanceada en `completeLevel1()` (ver Fase 3).
 - `serif.js`: grid de letras A–Z con fuentes serif/sans-serif reales, timer 30 s, +100 por acierto,
   error "That's Sans Serif!" con contador `❌ n/2`: **al 2.º error se reinicia la ronda**; explosión + vibración,
@@ -130,8 +128,7 @@ Firebase se importa por ESM desde el CDN de gstatic (v10.7.1), como en el diseñ
 ### Fase 5b — Nivel 3: Laboratorio de Algoritmos (M)
 - Al completar el Nivel 2, `completeLevel2()` guarda puntaje/precisión y asigna `level_3_game` (`hanoi` / `robot`) en la misma transacción.
 - `level3/hanoi.js`: 4 discos (óptimo 15), tocar torre origen y destino, reglas de pila; éxito → `level_3_completed` + `level_3_moves`.
-- `level3/robot.js`: grilla 6×6 con camino garantizado (BFS), programa completo y luego ejecución; choque → comando en rojo y reintento; éxito → `level_3_completed` + `level_3_commands`.
-- **Entregable:** el grupo se divide en dos juegos y pasa a la victoria cuando todos completan.
+- **Entregable:** todos juegan Torres de Hanoi (Robot Ciego se eliminó, decisión #25).
 
 ### Fase 5c — Nivel 4: Color (M)
 - `level4/color.js`: rueda de color con 6 etapas (HUE, SATURATION, COMPLEMENTARY, ANALOGOUS, TRIADIC, TETRADIC),

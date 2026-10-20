@@ -2,7 +2,9 @@
 title: Diagrama de flujo — Nivel 1 Matrix Protocol (bucle en tiempo real)
 ---
 flowchart TD
-  A([Nuevo intento]) --> G[Generar laberinto 7×7 conexo<br/>héroe en 0,0 · 📞 lejos · 1 agente lejos<br/>munición 3 · BYPASS 3 · ENCRYPT 1]
+  S0([Inicio del nivel]) --> GEN[Generar laberinto 7×7 conexo<br/>UNA vez por nivel · BYPASS 1]
+  GEN --> A([Nuevo intento])
+  A --> G[Mismo laberinto: héroe en 0,0<br/>📞 y 1 agente lejos<br/>munición 3 · ENCRYPT 1]
   G --> F[requestAnimationFrame:<br/>acumular dt por entidad]
   F --> V{¿Pantalla visible y<br/>pestaña en primer plano?}
   V -- No --> P[Pausar bucle] --> V
@@ -18,13 +20,13 @@ flowchart TD
 
   IN[/Entrada del jugador/] -.-> D1[Flechas / WASD / D-pad<br/>→ dirección deseada]
   IN -.-> D2[ESPACIO / DISPARAR<br/>→ proyectil si hay munición]
-  IN -.-> D3[B / BYPASS<br/>→ reconstruir muros y reubicar 📞<br/>3 usos, enfriamiento 1,5 s]
+  IN -.-> D3[B / BYPASS<br/>→ reconfigurar el laberinto y reubicar 📞<br/>1 sola vez por nivel: queda así]
   IN -.-> D4[E / ENCRYPT<br/>→ congelar agente más cercano 5 s<br/>1 uso]
   D1 & D2 & D3 & D4 -.-> F
 
   classDef term fill:#14532d,stroke:#22c55e,color:#fff
   classDef dec fill:#422006,stroke:#f59e0b,color:#fff
   classDef input fill:#1e293b,stroke:#94a3b8,color:#f8fafc
-  class A,FIN term
+  class S0,A,FIN term
   class V,C1,C2 dec
   class IN,D1,D2,D3,D4 input

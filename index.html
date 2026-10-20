@@ -82,7 +82,7 @@
           <span class="l1-act-label">🔫 DISPARAR</span> <span class="l1-use" id="l1-ammo">3</span>
         </button>
         <button id="l1-bypass" class="l1-act bypass" data-action="bypass">
-          <span class="l1-act-label">⚔️ BYPASS</span> <span class="l1-use" id="l1-bypass-n">3</span>
+          <span class="l1-act-label">⚔️ BYPASS</span> <span class="l1-use" id="l1-bypass-n">1</span>
         </button>
         <button id="l1-encrypt" class="l1-act encrypt" data-action="encrypt">
           <span class="l1-act-label">🧊 ENCRYPT</span> <span class="l1-use" id="l1-encrypt-n">1</span>
@@ -103,18 +103,7 @@
     </div>
   </section>
 
-  <!-- Screen 6a: Level 2 — I Shot The Serif -->
-  <section id="screen-serif" class="screen">
-    <div class="l2-top">
-      <span>⏱️ <span id="serif-time">30</span>s</span>
-      <span>❌ <span id="serif-errors">0/2</span></span>
-      <span>🎯 <span id="serif-score">0</span></span>
-    </div>
-    <div id="serif-grid" class="serif-grid"></div>
-    <p class="center muted">Tocá SOLO las tipografías CON SERIFAS · 2 errores y se reinicia</p>
-  </section>
-
-  <!-- Screen 6b: Level 2 — Shape Type -->
+  <!-- Screen 6: Level 2 — Shape Type -->
   <section id="screen-vector" class="screen">
     <div class="l2-top">
       <span>✏️ Vector Adjust</span>
@@ -125,7 +114,7 @@
     <p class="center muted">Arrastrá los 2 puntos rojos hasta que la curva coincida con la guía punteada. Precisión requerida: 85% en cada punto.</p>
   </section>
 
-  <!-- Screen 9a: Level 3 — Torres de Hanoi -->
+  <!-- Screen 9: Level 3 — Torres de Hanoi -->
   <section id="screen-hanoi" class="screen">
     <div class="l3-top">
       <span>🗼 Torres de Hanoi</span>
@@ -135,29 +124,6 @@
     <div id="hanoi-towers" class="hanoi-towers"></div>
     <p id="hanoi-msg" class="l3-msg" data-kind="info"></p>
     <button id="hanoi-reset" class="btn secondary">🔄 Reiniciar</button>
-  </section>
-
-  <!-- Screen 9b: Level 3 — Robot Ciego -->
-  <section id="screen-robot" class="screen">
-    <div class="l3-top">
-      <span>🤖 Robot Ciego</span>
-      <span>Comandos: <strong id="robot-count">0</strong></span>
-    </div>
-    <p class="l3-desc">El robot no ve: armá <b>todo el programa</b> y después ejecutalo. Si choca con una pared, el sistema falla.</p>
-    <div id="robot-grid" class="robot-grid"></div>
-    <p id="robot-msg" class="l3-msg" data-kind="info"></p>
-    <div id="robot-cmds" class="robot-cmds" aria-live="polite"></div>
-    <div id="robot-pad" class="robot-pad">
-      <button class="robot-btn" data-cmd="left" aria-label="Girar a la izquierda">↩️<small>Girar izq.</small></button>
-      <button class="robot-btn" data-cmd="forward" aria-label="Avanzar">⬆️<small>Avanzar</small></button>
-      <button class="robot-btn" data-cmd="right" aria-label="Girar a la derecha">↪️<small>Girar der.</small></button>
-    </div>
-    <div class="robot-actions">
-      <button id="robot-undo" class="btn secondary" aria-label="Borrar el último comando">⌫</button>
-      <button id="robot-clear" class="btn secondary" aria-label="Borrar todo el programa">🗑️</button>
-      <button id="robot-new" class="btn secondary" aria-label="Nuevo laberinto">🔀</button>
-      <button id="robot-run" class="btn run">▶️ Ejecutar</button>
-    </div>
   </section>
 
   <!-- Screen 11: Level 4 — Color (colour matching) -->

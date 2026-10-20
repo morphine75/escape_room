@@ -31,7 +31,7 @@ const PHONE_MOVE_CHANCE = 0.6; // phone sometimes stays put (catchable)
 const FREEZE_ENCRYPT_MS = 5000; // ENCRYPT freeze
 const FREEZE_SHOT_MS = 4000; // projectile freeze
 
-const BYPASS_USES = 3;
+const BYPASS_USES = 1; // the maze is static: it can be reconfigured ONCE per level
 const BYPASS_COOLDOWN_MS = 1500;
 const ENCRYPT_USES = 1;
 const AMMO = 3;
@@ -175,8 +175,11 @@ export function initLevel1({ onComplete } = {}) {
   }
 
   // --- Level lifecycle -------------------------------------------------------
-  function newAttempt() {
-    const level = generateLevel1(state.size);
+  // New attempt. The maze is static for the whole level (decision #24): only a
+  // new level (newPuzzle) generates it; after a capture the same maze is kept
+  // and only the hero, phone and agent go back to starting positions.
+  function newAttempt(keepMaze = true) {
+    const level = generateLevel1(state.size, keepMaze && state.walls ? state.walls : null);
     state.size = level.size;
     state.walls = level.walls;
     state.hero = { ...level.hero };
@@ -186,7 +189,6 @@ export function initLevel1({ onComplete } = {}) {
     state.wantDir = null;
     state.projectiles = [];
     state.ammo = AMMO;
-    state.bypassUses = BYPASS_USES;
     state.encryptUses = ENCRYPT_USES;
     state.lastBypassAt = -Infinity;
     state.pendingReset = false;
@@ -200,7 +202,8 @@ export function initLevel1({ onComplete } = {}) {
   function newPuzzle() {
     state.attempts = 1;
     state.solved = false;
-    newAttempt();
+    state.bypassUses = BYPASS_USES; // one reconfiguration for the whole level
+    newAttempt(false);
     setStatus(DEFAULT_STATUS, "info", 0);
     if (isActive() && !document.hidden) start();
   }
@@ -373,7 +376,8 @@ export function initLevel1({ onComplete } = {}) {
     state.lastBypassAt = t;
     state.bypassUses--;
 
-    const keep = [state.hero, ...state.agents.map((a) => ({ x: a.x, y: a.y }))];
+    // Keep the start cell open too: later attempts reuse this maze.
+    const keep = [state.hero, { x: 0, y: 0 }, ...state.agents.map((a) => ({ x: a.x, y: a.y }))];
     state.walls = regenerateWalls(state.size, keep);
     state.agents.forEach((a) => (a.prev = null));
     relocatePhone();
@@ -382,7 +386,7 @@ export function initLevel1({ onComplete } = {}) {
     sizeTokens();
     paint(t);
     updateHud();
-    setStatus("Laberinto reconfigurado ⚔️");
+    setStatus("Laberinto reconfigurado ⚔️ (queda así para todo el nivel)");
     vibrate([15, 30, 15]);
   }
 
@@ -492,7 +496,7 @@ export function initLevel1({ onComplete } = {}) {
     if (state.pendingReset) {
       state.pendingReset = false;
       newAttempt();
-      setStatus("🚨 ¡Te atraparon! Laberinto nuevo", "error");
+      setStatus("🚨 ¡Te atraparon! Volvés al inicio", "error");
     }
     paint(t);
   }
